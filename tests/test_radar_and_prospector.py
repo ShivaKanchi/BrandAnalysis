@@ -1,4 +1,11 @@
+import sys
+from pathlib import Path
 import pytest
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
+
 from core.models import DiscoveredLeadItem, LeadProspectingReport, SoftwareProblemRadarReport
 from core.problem_radar import SoftwareProblemRadar
 from core.auto_prospector import AutoProspector

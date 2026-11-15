@@ -1,0 +1,11 @@
+{
+  "min_followers": 2500,
+  "max_lighthouse_score": 60,
+  "min_console_errors": 1,
+  "ollama_base_url": "http://localhost:11434",
+  "ollama_model": "gemma4:31b-cloud",
+  "ollama_api_key": "",
+  "gemini_api_key": "",
+  "google_pagespeed_api_key": "",
+  "headless_browser": true
+}

@@ -1,0 +1,66 @@
+[
+  {
+    "domain": "aloyoga.com",
+    "store_name": "Alo Yoga",
+    "platform": "shopify",
+    "is_shopify": true,
+    "followers": 3200000,
+    "lighthouse_performance": 38,
+    "lighthouse_seo": 92,
+    "lighthouse_accessibility": 84,
+    "console_errors_count": 4,
+    "console_error_logs": [
+      "TypeError: Cannot read properties of null (reading addEventListener) at bundle.js:41"
+    ],
+    "vision_score": 62,
+    "qualified_for_revamp": true,
+    "status": "Qualified",
+    "pitch_email": "Hi Alo Yoga team, noticed your mobile speed is 38/100...",
+    "pitch_dm": "Hey Alo Yoga! Found a few checkout bugs...",
+    "id": "aloyoga.com",
+    "created_at": "2026-11-15T01:16:23.701201",
+    "updated_at": "2026-11-15T01:16:23.701201"
+  },
+  {
+    "domain": "demo-store.myshopify.com",
+    "store_name": "Demo store",
+    "platform": "shopify",
+    "is_shopify": true,
+    "followers": 0,
+    "engagement_rate": 0.0,
+    "social_handle": "@demo-store",
+    "social_url": "https://instagram.com/demo-store",
+    "lighthouse_performance": 31.3,
+    "lighthouse_seo": 95.0,
+    "lighthouse_accessibility": 78.0,
+    "console_errors_count": 0,
+    "console_error_logs": [],
+    "vision_score": 56,
+    "vision_critique": "The storefront exhibits functional eCommerce infrastructure but suffers from legacy layout patterns, slow visual hierarchy resolution, and dated visual elements that decrease mobile conversion confidence.",
+    "vision_bad_patterns": [
+      "Cluttered multi-level navigation dropdown causing mobile menu overflow",
+      "Oversized static hero banner lacking clear contrast and primary CTA visibility",
+      "Outdated typography scale with insufficient line-height for mobile reading"
+    ],
+    "vision_revamp_suggestions": [
+      "Upgrade to modern minimalist editorial typography with refined spacing & micro-copy",
+      "Implement high-converting sticky slide-out cart drawer with free shipping progress bar",
+      "Redesign hero into dynamic mobile-first split layout highlighting bestseller collection"
+    ],
+    "pitch_email": "Hello Demo store Team,\n\nWe audited your store at demo-store.myshopify.com and found performance is currently within normal operating thresholds.",
+    "pitch_dm": "Hey Demo store! Took a quick look at demo-store.myshopify.com — overall looking solid!",
+    "redesign_blueprint": [
+      "Routine CDN cache updates"
+    ],
+    "qualified_for_revamp": false,
+    "qualification_reasons": [
+      "Performance lag detected (31/100 <= 70 max threshold).",
+      "Store does not meet qualification criteria (metrics within healthy range)."
+    ],
+    "status": "Rejected",
+    "niche": "E-Commerce",
+    "id": "demo-store.myshopify.com",
+    "created_at": "2026-11-15T01:15:16.923452",
+    "updated_at": "2026-11-15T01:15:16.923452"
+  }
+]

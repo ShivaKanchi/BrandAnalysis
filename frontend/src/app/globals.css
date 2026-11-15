@@ -1,0 +1,101 @@
+/* Hallmark · shape: app screen · genre: modern-minimal · theme: Rim (deal 2/3, seed autonomous-brand-intelligence-shopify-12af·2e0ea9e8·2026-11-15·r0) · redesign: full
+ * nav: edge-aligned, telemetry shell · signature: real-time DAG store auditor and outreach matrix · states: idle, running, completed, error, inspecting
+ * axes: dark/grotesk-sans/warm · posture: committed · contrast: pass · v2.0.0 */
+/* Hallmark · pre-emit critique: P9 H8 E9 S9 R8 V9 · weakest: H8, tightened telemetry metrics and removed all decorative blur orbs */
+
+@import url("./tokens.css");
+@import url("./base.css");
+@import '@xyflow/react/dist/style.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body {
+  overflow-x: clip;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  min-height: 100dvh;
+}
+
+/* Surface panels: hard hairline borders, depth by lightness */
+.panel {
+  background: var(--color-paper-2);
+  color: var(--color-ink);
+  border: var(--rule-hair) solid var(--color-rule);
+}
+
+.panel-sunken {
+  background: var(--color-paper-3);
+  color: var(--color-ink);
+  border: var(--rule-hair) solid var(--color-rule-2);
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-paper-3);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-rule);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-muted-2);
+}
+
+/* React Flow custom overrides for Rim */
+.react-flow__background {
+  background-color: var(--color-paper) !important;
+}
+
+.react-flow__controls {
+  background: var(--color-paper-2) !important;
+  border: var(--rule-hair) solid var(--color-rule) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.react-flow__controls-button {
+  background: transparent !important;
+  border-bottom: var(--rule-hair) solid var(--color-rule-2) !important;
+  fill: var(--color-muted) !important;
+  border-radius: 0 !important;
+  transition-property: fill, background-color;
+  transition-duration: var(--dur-micro);
+  transition-timing-function: var(--ease-out);
+}
+.react-flow__controls-button:hover {
+  background: var(--color-paper-3) !important;
+  fill: var(--color-accent) !important;
+}
+
+.react-flow__edge-path {
+  stroke-width: 1.5 !important;
+}
+
+/* Status indicator animation without blur halos */
+@keyframes signalPulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.signal-live {
+  animation: signalPulse 1.6s infinite ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .signal-live {
+    animation: none !important;
+  }
+}

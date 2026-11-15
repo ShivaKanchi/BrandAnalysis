@@ -97,3 +97,11 @@ reports/**/temp_*
 
 # --- Saved Reports (Uncomment if needed to track reports) ---
 reports/*
+
+
+
+# Frontend
+.next
+node_modules
+.agents
+.hallmark
