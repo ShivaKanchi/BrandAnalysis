@@ -32,7 +32,7 @@ DEFAULT_SETTINGS = {
 
 
 class StorageManager:
-    """Handles persistence for Shopify Revamp leads, global app settings, and bridges legacy reports."""
+    """Handles persistence for discovered leads, global app settings, and reports."""
 
     @classmethod
     def load_leads(cls) -> List[Dict[str, Any]]:
@@ -57,7 +57,7 @@ class StorageManager:
 
     @classmethod
     def upsert_lead(cls, lead_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Save or update a Shopify revamp lead."""
+        """Save or update an e-commerce store lead."""
         leads = cls.load_leads()
         domain = lead_data.get("domain", "").strip().lower()
         if not domain and "store_url" in lead_data:
@@ -135,7 +135,7 @@ class StorageManager:
 
     @classmethod
     def export_leads_csv(cls) -> str:
-        """Exports all Shopify Revamp leads as a CSV string."""
+        """Exports all e-commerce store leads as a CSV string."""
         leads = cls.load_leads()
         output = io.StringIO()
         fieldnames = [
@@ -200,17 +200,65 @@ class StorageManager:
 
     @classmethod
     def get_legacy_reports_index(cls) -> List[Dict[str, Any]]:
-        """Reads the legacy BrandIntel reports index if available."""
+        """Reads reports index and compiles teardown reports from audited leads."""
+        reports: List[Dict[str, Any]] = []
+
+        # 1. Load any reports from intelligence_index.json if present
         index_file = REPORTS_DIR / "intelligence_index.json"
-        if not index_file.exists():
-            return []
-        try:
-            with open(index_file, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                if isinstance(data, dict):
-                    return data.get("reports", [])
-                elif isinstance(data, list):
-                    return data
-        except Exception as e:
-            logger.error(f"Error loading legacy index: {e}")
-        return []
+        if index_file.exists():
+            try:
+                with open(index_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    if isinstance(data, dict):
+                        reports.extend(data.get("reports", []))
+                    elif isinstance(data, list):
+                        reports.extend(data)
+            except Exception as e:
+                logger.error(f"Error loading legacy index: {e}")
+
+        # 2. Compile real reports from audited store leads
+        leads = cls.load_leads()
+        for idx, lead in enumerate(leads):
+            domain = lead.get("domain", f"store-{idx+1}")
+            store_name = lead.get("store_name", domain)
+            perf = lead.get("lighthouse_performance", "N/A")
+            errors_count = lead.get("console_errors_count", 0)
+            status = lead.get("status", "Pending")
+            created_at = lead.get("created_at", datetime.now().isoformat())
+            blueprint_items = lead.get("redesign_blueprint") or lead.get("vision_revamp_suggestions") or ["Store speed optimization", "Script consolidation"]
+            blueprint_str = "\n".join(f"- {item}" for item in blueprint_items)
+
+            report_content = f"""# Technical Store Audit: {domain}
+> Status: {status} | Platform: {lead.get('platform', 'Shopify')}
+
+## 1. Executive Performance Summary
+- Store Name: {store_name}
+- Domain: {domain}
+- Mobile Lighthouse Score: {perf} / 100
+- JavaScript Console Errors: {errors_count}
+- Social Audience: {lead.get('followers', 0):,} followers ({lead.get('social_handle', '@' + domain)})
+
+## 2. Technical Remediation Blueprint
+{blueprint_str}
+
+## 3. Client Acquisition Outreach Pitch
+### Email Draft
+{lead.get('pitch_email', 'Pitch draft pending audit.')}
+
+### Direct Message Draft
+{lead.get('pitch_dm', 'DM draft pending audit.')}
+"""
+
+            reports.append({
+                "id": f"rep-{lead.get('id', domain)}",
+                "title": f"{store_name} - Technical Performance & Lead Teardown",
+                "domain": domain,
+                "type": "Store Lead Kit",
+                "format": "Markdown",
+                "generatedAt": created_at,
+                "fileSize": f"{len(report_content.encode('utf-8')) // 1024 + 1} KB",
+                "summary": f"Complete technical audit for {domain}: {perf}/100 speed score, {errors_count} runtime exceptions, status: {status}.",
+                "content": report_content,
+            })
+
+        return reports

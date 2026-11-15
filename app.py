@@ -382,20 +382,17 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # Helper: Detect Ollama models with embedding models filtered out
+from core.ollama_helper import OllamaManager
+
 def get_ollama_models(host: str):
-    try:
-        r = requests.get(f"{host.rstrip('/')}/api/tags", timeout=2)
-        if r.status_code == 200:
-            raw_models = [m["name"] for m in r.json().get("models", [])]
-            # Filter out embedding models (e.g. qwen3-embedding, nomic-embed, bge)
-            chat_models = [
-                m for m in raw_models
-                if not any(x in m.lower() for x in ["embed", "bge", "minilm"])
-            ]
-            return chat_models if chat_models else raw_models
-    except Exception:
-        pass
-    return ["gemma4:31b-cloud", "gemma4:31b", "llama3.2"]
+    status = OllamaManager.check_status(host)
+    if status.get("online") and status.get("installed_models"):
+        chat_models = [
+            m for m in status["installed_models"]
+            if not any(x in m.lower() for x in ["embed", "bge", "minilm"])
+        ]
+        return chat_models if chat_models else status["installed_models"]
+    return ["llama3.2", "mistral", "llama3:8b", "qwen2.5:7b"]
 
 # Sidebar Navigation & Settings
 with st.sidebar:
@@ -415,25 +412,17 @@ with st.sidebar:
     st.markdown(f'<div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 0.4rem; color: #94A3B8; display: flex; align-items: center; gap: 0.4rem;">{lucide("settings", 16, "#38BDF8")} ENGINE CONFIGURATION</div>', unsafe_allow_html=True)
     ollama_host = st.text_input("Ollama Base URL", value=settings.OLLAMA_BASE_URL)
     
-    available_models = get_ollama_models(ollama_host)
-    target_preferred = settings.OLLAMA_MODEL or "gemma4:31b-cloud"
-
-    # Always ensure gemma4:31b-cloud is an option
-    if target_preferred not in available_models:
-        available_models.insert(0, target_preferred)
-
-    # By default, select gemma4:31b-cloud or any gemma model
-    default_model_idx = 0
-    if target_preferred in available_models:
-        default_model_idx = available_models.index(target_preferred)
+    ollama_status = OllamaManager.check_status(ollama_host)
+    if ollama_status.get("online"):
+        st.caption(f"🟢 **Ollama Connected** ({len(ollama_status.get('installed_models', []))} model(s) available)")
     else:
-        for idx, m_name in enumerate(available_models):
-            if "gemma" in m_name.lower():
-                default_model_idx = idx
-                break
+        st.caption("⚪ **Ollama Offline** (Auto-failover active. Run `ollama serve` to start local AI)")
+
+    available_models = get_ollama_models(ollama_host)
+    default_model_idx = 0
 
     selected_model = st.selectbox(
-        "Model",
+        "Active AI Model",
         options=available_models,
         index=default_model_idx
     )
@@ -480,27 +469,51 @@ if app_mode == "Lead Harvester":
     </div>
     """, unsafe_allow_html=True)
 
+    total_registry_leads = StorageManager.get_leads_registry_count()
+
     with st.container():
-        c_niche, c_loc, c_lim, c_run = st.columns([3, 2.5, 1, 1.5])
+        c_niche, c_loc, c_lim, c_run = st.columns([2.5, 2.5, 1, 1.5])
         with c_niche:
             search_niche = st.text_input("Business Niche / Category", value="Gyms", placeholder="e.g. Specialty Coffee, Dentists, Gyms")
         with c_loc:
             search_locality = st.text_input("Locality / City", value="Kandivali, Mumbai", placeholder="e.g. Austin TX, Bandra Mumbai")
         with c_lim:
-            search_limit = st.number_input("Max Places", min_value=3, max_value=20, value=6, step=1)
+            search_limit = st.number_input("Max Places", min_value=3, max_value=25, value=6, step=1)
         with c_run:
             st.write("")
             st.write("")
             start_prospect = st.button("Harvest Leads", type="primary", use_container_width=True)
 
+        c_opt1, c_opt2, c_opt3 = st.columns([1.2, 1.2, 1])
+        with c_opt1:
+            fresh_only = st.checkbox(
+                "✨ Fresh Leads Only (Skip previously harvested)",
+                value=True,
+                help="Checks against the leads database to ensure you never get the same leads repeatedly."
+            )
+        with c_opt2:
+            auto_expand = st.checkbox(
+                "🔄 Auto-Expand Neighborhoods (If top results saturated)",
+                value=True,
+                help="Automatically generates sub-localities (East/West/Central) or sub-niche queries if top listings have already been gathered."
+            )
+        with c_opt3:
+            use_browser = st.checkbox(
+                "🌐 Browser Scraper",
+                value=False,
+                help="Launch headless Chromium. If unchecked, uses the fast multi-tier directory search engine."
+            )
+
     if start_prospect:
-        with st.spinner(f"Scraping Google Maps for '{search_niche}' in '{search_locality}' and discovering Instagram handles..."):
-            prospector = AutoProspector(headless=True)
+        with st.spinner(f"Harvesting fresh business leads in '{search_locality}' and verifying commercial intent..."):
+            prospector = AutoProspector(headless=True, use_playwright=use_browser)
             try:
                 lead_report = prospector.discover_leads(
                     niche_or_query=search_niche,
                     location=search_locality,
-                    limit=search_limit
+                    limit=search_limit,
+                    exclude_previously_seen=fresh_only,
+                    auto_expand=auto_expand
                 )
                 st.session_state["lead_report"] = lead_report
             except Exception as e:
@@ -510,37 +523,64 @@ if app_mode == "Lead Harvester":
         l_rep: LeadProspectingReport = st.session_state["lead_report"]
         
         st.markdown("---")
-        m1, m2, m3 = st.columns(3)
+        m1, m2, m3, m4 = st.columns(4)
         with m1:
-            st.metric("Total Places Scanned", l_rep.total_places_scanned)
+            st.metric("Fresh Leads Discovered", l_rep.fresh_leads_count or len(l_rep.leads))
         with m2:
-            st.metric("Instagram Handles Verified", l_rep.leads_with_instagram)
+            st.metric("Previously Seen Skipped", l_rep.recycled_leads_skipped)
         with m3:
-            conversion_rate = f"{(l_rep.leads_with_instagram / l_rep.total_places_scanned * 100):.0f}%" if l_rep.total_places_scanned else "0%"
-            st.metric("IG Discovery Rate", conversion_rate)
+            st.metric("High-Intent Prospects", l_rep.high_intent_count)
+        with m4:
+            st.metric("Total in Lead Registry", l_rep.total_registry_leads or StorageManager.get_leads_registry_count())
 
         st.subheader("Discovered Business Leads")
         
         for idx, lead in enumerate(l_rep.leads, 1):
             with st.container():
+                intent_pill_class = (
+                    "pill-green" if lead.lead_intent_score == "High Intent"
+                    else "pill-yellow" if lead.lead_intent_score == "Promising"
+                    else "pill-gray"
+                )
+
+                signals_html = ""
+                if lead.authenticity_signals:
+                    badges = "".join([f"<span class='pill pill-blue' style='font-size: 0.78rem; margin-right: 0.35rem;'>{html.escape(sig)}</span>" for sig in lead.authenticity_signals])
+                    signals_html = f"<div style='margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.35rem;'>{badges}</div>"
+
+                pitch_html = ""
+                if lead.opportunity_angle:
+                    pitch_html = f"""
+                    <div style="margin-top: 0.65rem; padding: 0.5rem 0.75rem; background: rgba(56, 189, 248, 0.08); border-left: 3px solid #38BDF8; border-radius: 4px; font-size: 0.85rem; color: #E2E8F0;">
+                        <strong>Targeted Pitch Angle:</strong> {html.escape(lead.opportunity_angle)}
+                    </div>
+                    """
+
                 render_html(f"""
                 <div class="panel-card" style="margin-bottom: 1rem;">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 0.5rem;">
                         <div>
-                            <h4 style="margin: 0; color: #F8FAFC; font-size: 1.15rem;">{idx}. {html.escape(lead.business_name)}</h4>
-                            <div style="font-size: 0.88rem; color: #94A3B8; margin-top: 0.2rem; display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                                <h4 style="margin: 0; color: #F8FAFC; font-size: 1.15rem;">{idx}. {html.escape(lead.business_name)}</h4>
+                                <span class="pill {intent_pill_class}">{html.escape(lead.lead_intent_score)}</span>
+                                <span class="pill pill-green">✨ Fresh Lead</span>
+                            </div>
+                            <div style="font-size: 0.88rem; color: #94A3B8; margin-top: 0.3rem; display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
                                 {lucide("map-pin", 14, "#94A3B8")} {html.escape(lead.address_or_location or '')} &nbsp;|&nbsp; {lucide("star", 14, "#FACC15")} {html.escape(lead.rating or 'N/A')} ({html.escape(lead.review_count or '0')} reviews)
+                                {f"&nbsp;|&nbsp; {lucide('phone', 14, '#38BDF8')} {html.escape(lead.phone)}" if lead.phone else ""}
                             </div>
                         </div>
                         <div>
                             <span class="pill {'pill-green' if lead.instagram_handle else 'pill-yellow'}">{lead.lead_status}</span>
                         </div>
                     </div>
+                    {signals_html}
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.75rem; margin-top: 0.75rem; font-size: 0.9rem;">
-                        <div><strong>Website:</strong> {f"<a href='{lead.website}' target='_blank' style='color: #60A5FA;'>{html.escape(lead.website)}</a>" if lead.website else "None"}</div>
+                        <div><strong>Website:</strong> {f"<a href='{lead.website}' target='_blank' style='color: #60A5FA;'>{html.escape(lead.website)}</a>" if lead.website else "<span style='color: #EF4444;'>None (High Opportunity)</span>"}</div>
                         <div><strong>Instagram:</strong> {f"<a href='{lead.instagram_url}' target='_blank' style='color: #E879F9; font-weight: bold;'>@{html.escape(lead.instagram_handle)}</a>" if lead.instagram_handle else "Not Found"}</div>
                         <div><strong>Google Maps:</strong> {f"<a href='{lead.maps_url}' target='_blank' style='color: #38BDF8;'>View Listing ↗</a>" if lead.maps_url else "N/A"}</div>
                     </div>
+                    {pitch_html}
                 </div>
                 """)
                 
@@ -551,12 +591,21 @@ if app_mode == "Lead Harvester":
                         st.success(f"Selected @{lead.instagram_handle}! Switch to 'Brand Audit' in the left sidebar to run the audit.")
 
         st.markdown("---")
-        st.download_button(
-            "Download Discovered Leads JSON",
-            data=l_rep.model_dump_json(indent=2),
-            file_name=f"leads_{l_rep.target_locality.replace(' ', '_')}.json",
-            mime="application/json"
-        )
+        c_dl, c_clr = st.columns([2, 1])
+        with c_dl:
+            st.download_button(
+                "Download Discovered Leads JSON",
+                data=l_rep.model_dump_json(indent=2),
+                file_name=f"leads_{l_rep.target_locality.replace(' ', '_')}.json",
+                mime="application/json",
+                use_container_width=True
+            )
+        with c_clr:
+            with st.expander("Reset Registry History"):
+                st.caption(f"Currently tracking {StorageManager.get_leads_registry_count()} unique business leads across past runs.")
+                if st.button("Clear Leads Database", type="secondary", use_container_width=True):
+                    StorageManager.clear_leads_registry()
+                    st.success("Lead registry cleared! Next search will start completely fresh.")
 
 
 # ==============================================================================

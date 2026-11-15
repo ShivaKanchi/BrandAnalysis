@@ -13,8 +13,8 @@ import {
 } from 'lucide-react';
 
 export type ActiveModule =
-  | 'shopify-revamp'
   | 'lead-harvester'
+  | 'shopify-revamp'
   | 'brand-audit'
   | 'competitor-matrix'
   | 'problem-radar'
@@ -29,15 +29,15 @@ interface HeaderProps {
 export function Header({ activeModule, onSelectModule, leadsCount }: HeaderProps) {
   const navItems: { id: ActiveModule; label: string; icon: React.ElementType; badge?: string }[] = [
     {
-      id: 'shopify-revamp',
-      label: 'Shopify Store Finder',
-      icon: ShoppingBag,
-      badge: `${leadsCount} leads`,
-    },
-    {
       id: 'lead-harvester',
       label: 'Lead Harvester',
       icon: Compass,
+    },
+    {
+      id: 'shopify-revamp',
+      label: 'Store Lead Farming',
+      icon: ShoppingBag,
+      badge: `${leadsCount} leads`,
     },
     {
       id: 'brand-audit',
@@ -75,7 +75,7 @@ export function Header({ activeModule, onSelectModule, leadsCount }: HeaderProps
                 BrandAnalysis
               </span>
               <span className="text-xs text-muted">
-                engine v2
+                lead harvester
               </span>
             </div>
           </div>

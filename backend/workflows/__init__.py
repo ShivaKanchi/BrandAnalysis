@@ -7,14 +7,20 @@ from .problem_radar_workflow import ProblemRadarWorkflow
 
 WORKFLOW_REGISTRY = {
     "shopify_revamp": ShopifyRevampWorkflow,
+    "shopify-revamp": ShopifyRevampWorkflow,
     "lead_harvester": LeadHarvesterWorkflow,
+    "lead-harvester": LeadHarvesterWorkflow,
     "brand_audit": BrandAuditWorkflow,
+    "brand-audit": BrandAuditWorkflow,
     "competitor_matrix": CompetitorMatrixWorkflow,
+    "competitor-matrix": CompetitorMatrixWorkflow,
     "problem_radar": ProblemRadarWorkflow,
+    "problem-radar": ProblemRadarWorkflow,
 }
 
 def get_workflow(workflow_id: str) -> BaseWorkflow:
-    cls = WORKFLOW_REGISTRY.get(workflow_id)
+    normalized = (workflow_id or "").strip().lower().replace("-", "_")
+    cls = WORKFLOW_REGISTRY.get(workflow_id) or WORKFLOW_REGISTRY.get(normalized)
     if not cls:
         raise ValueError(f"Unknown workflow id: {workflow_id}. Available: {list(WORKFLOW_REGISTRY.keys())}")
     return cls()

@@ -144,9 +144,19 @@ class ShopifyRevampWorkflow(BaseWorkflow):
     # -------------------------------------------------------------------------
 
     async def _handle_input(self, context: Dict[str, Any], log) -> Dict[str, Any]:
-        raw_url = context.get("url") or ""
-        query = context.get("query") or ""
-        niche = context.get("niche") or ""
+        raw_url = (context.get("url") or "").strip()
+        target_param = (context.get("target") or "").strip()
+        query = (context.get("query") or "").strip()
+        niche = (context.get("niche") or "").strip()
+
+        # If target parameter was provided, route appropriately
+        if target_param:
+            if target_param.startswith("http://") or target_param.startswith("https://") or ("." in target_param and " " not in target_param):
+                if not raw_url:
+                    raw_url = target_param
+            else:
+                if not query:
+                    query = target_param
 
         # Load global threshold settings
         settings = StorageManager.get_settings()
@@ -158,28 +168,65 @@ class ShopifyRevampWorkflow(BaseWorkflow):
         context["max_lighthouse_score"] = max_lighthouse
         context["min_console_errors"] = min_errors
 
-        target_url = normalize_url(raw_url)
+        target_url = normalize_url(raw_url) if raw_url else ""
+
         if not target_url and query:
-            # Query-based discovery mode
-            await log(f"Searching niche prospects for query: '{query}'...", "info")
+            # Parse niche & locality if user typed e.g. "Skincare in Austin"
+            loc = (context.get("location") or "").strip()
+            niche_term = query
+            if not loc and " in " in query.lower():
+                parts = re.split(r'\s+in\s+', query, flags=re.IGNORECASE)
+                if len(parts) >= 2:
+                    niche_term = parts[0].strip()
+                    loc = parts[1].strip()
+            if not loc:
+                loc = "Austin, TX"
+
+            # Query-based discovery mode using AutoProspector with deduplication
+            await log(f"Searching niche prospects for: '{niche_term}' in '{loc}'...", "info")
             try:
-                from backend.tools.scrapers.maps_harvester import harvest_niche_leads
-                discovered = await asyncio.to_thread(harvest_niche_leads, query, limit=1)
-                if discovered and len(discovered) > 0 and discovered[0].get("website"):
-                    target_url = normalize_url(discovered[0]["website"])
-                    await log(f"Discovered target webstore: {target_url}", "info")
+                from core.auto_prospector import AutoProspector
+                prospector = AutoProspector(headless=True, use_playwright=False)
+                report = await asyncio.to_thread(
+                    prospector.discover_leads,
+                    niche_or_query=niche_term,
+                    location=loc,
+                    limit=1,
+                    exclude_previously_seen=True,
+                    auto_expand=False
+                )
+                if report and hasattr(report, "leads") and report.leads:
+                    for lead_item in report.leads:
+                        site = getattr(lead_item, "website", None) or ""
+                        if site and "example" not in site:
+                            target_url = normalize_url(site)
+                            business_name = getattr(lead_item, "business_name", None) or ""
+                            await log(f"Discovered target store: {target_url} ({business_name})", "info")
+                            break
             except Exception as e:
-                logger.warning(f"Maps discovery failed: {e}")
+                logger.warning(f"AutoProspector discovery failed: {e}")
+                await log(f"Directory discovery notice: {e}", "warn")
+
+        if not target_url and query:
+            # Fallback direct web search to discover real brand site
+            try:
+                from backend.tools.scrapers.maps_harvester import MapsHarvester
+                mh = MapsHarvester(headless=True)
+                places = await asyncio.to_thread(mh._scrape_places_fallback, query, limit=3)
+                if places:
+                    for p in places:
+                        if p.get("website"):
+                            target_url = normalize_url(p["website"])
+                            await log(f"Discovered brand via web search: {target_url} ({p.get('name')})", "info")
+                            break
+            except Exception as e:
+                logger.warning(f"Fallback search failed: {e}")
 
         if not target_url:
-            if query:
-                # Construct domain from query
-                clean_q = re.sub(r'[^a-zA-Z0-9]', '', query.lower())
-                target_url = f"https://{clean_q}.com"
-                await log(f"Defaulting query to target domain: {target_url}", "info")
+            if raw_url:
+                target_url = normalize_url(raw_url)
             else:
-                target_url = "https://example-shopify-brand.myshopify.com"
-                await log(f"No URL or query provided. Using demo store: {target_url}", "warn")
+                raise ValueError(f"Could not discover an active webstore for '{query or target_param}'. Please enter a specific brand domain or URL.")
 
         domain = extract_domain(target_url)
         brand_name = domain.split(".")[0].replace("-", " ").capitalize()
@@ -191,7 +238,7 @@ class ShopifyRevampWorkflow(BaseWorkflow):
             "url": target_url,
             "domain": domain,
             "store_name": brand_name,
-            "niche": niche or query or "E-Commerce",
+            "niche": niche or query or target_param or "E-Commerce",
         }
 
     async def _handle_shopify_check(self, context: Dict[str, Any], log) -> Dict[str, Any]:
@@ -257,9 +304,9 @@ class ShopifyRevampWorkflow(BaseWorkflow):
                 social_url = presence.get("primary_url") or presence.get("url") or social_url
         except Exception as e:
             logger.warning(f"Error calling social_scraper: {e}")
-            # Sensible synthetic data for simulation
-            followers = 18450
-            engagement_rate = 2.8
+            # Do not invent fake follower numbers
+            followers = 0
+            engagement_rate = 0.0
 
         meets_audience = followers >= min_followers
         if meets_audience:

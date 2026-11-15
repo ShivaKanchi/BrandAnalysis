@@ -32,7 +32,7 @@ export function LeadPitchModal({ lead, onClose }: LeadPitchModalProps) {
 
   const lhStyle = getLighthouseBadgeStyle(lead.lighthouseScore);
 
-  const fullMarkdownReport = `# Technical Revamp Audit: ${lead.storeName} (${lead.domain})
+  const fullMarkdownReport = `# Performance & Conversion Audit: ${lead.storeName} (${lead.domain})
 > Telemetry Source: Playwright Headless and Google Lighthouse | Status: ${lead.qualificationStatus}
 
 ## 1. Executive Summary
@@ -73,7 +73,7 @@ ${lead.pitchEmail?.body || 'We prepared a technical teardown showing how to get 
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${lead.domain}_revamp_audit.md`;
+    link.download = `${lead.domain}_lead_audit.md`;
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -232,7 +232,7 @@ ${lead.pitchEmail?.body || 'We prepared a technical teardown showing how to get 
                 </span>
                 <div className="text-xs text-ink-2 whitespace-pre-line leading-relaxed">
                   {lead.pitchEmail?.body ||
-                    `Hi team,\n\nWhile reviewing ${lead.domain}, we recorded a mobile performance score of ${lead.lighthouseScore}/100 and ${lead.consoleErrorsCount} runtime console errors.\n\nWe prepared a technical teardown showing how to achieve sub-1.2s page load speeds.\n\nBest regards,\nRevamp Team`}
+                    `Hi team,\n\nWhile reviewing ${lead.domain}, we recorded a mobile performance score of ${lead.lighthouseScore}/100 and ${lead.consoleErrorsCount} runtime console errors.\n\nWe prepared a technical teardown showing how to achieve sub-1.2s page load speeds.\n\nBest regards,\nClient Growth Team`}
                 </div>
               </div>
             </div>

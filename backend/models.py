@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from pydantic import BaseModel, Field
 
 # ==============================================================================
-# 1. NEW AUTOMATION: SHOPIFY REVAMP & STORE AUDITING SCHEMAS
+# 1. STORE LEAD FARMING & AUDITING SCHEMAS
 # ==============================================================================
 
 class ShopifyStoreLead(BaseModel):
@@ -352,13 +352,22 @@ class DiscoveredLeadItem(BaseModel):
     rating: Optional[str] = Field(None, description="Google Maps rating")
     review_count: Optional[str] = Field(None, description="Total review count")
     phone: Optional[str] = Field(None, description="Business phone number")
-    lead_status: Literal["Instagram Verified", "Website Only (No IG)", "Maps Only"] = "Instagram Verified"
+    lead_status: Literal["Instagram Verified", "Website Only (No IG)", "Maps Only", "Locality Verified"] = "Instagram Verified"
+    lead_intent_score: Literal["High Intent", "Promising", "Low Intent / Ghost"] = Field("Promising")
+    authenticity_signals: List[str] = Field(default_factory=list)
+    opportunity_angle: Optional[str] = Field(None)
+    is_fresh_lead: bool = Field(True)
+    first_discovered_at: Optional[str] = Field(None)
 
 class LeadProspectingReport(BaseModel):
     search_query: str = Field(..., description="Original search query used")
     target_locality: str = Field(..., description="City or neighborhood searched")
     total_places_scanned: int = Field(0)
     leads_with_instagram: int = Field(0)
+    fresh_leads_count: int = Field(0)
+    recycled_leads_skipped: int = Field(0)
+    high_intent_count: int = Field(0)
+    total_registry_leads: int = Field(0)
     leads: List[DiscoveredLeadItem] = Field(default_factory=list)
     created_at: str = Field(default_factory=lambda: datetime.now().isoformat())
 

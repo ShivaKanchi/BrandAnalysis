@@ -1,3 +1,4 @@
+import re
 import asyncio
 import logging
 from typing import Dict, Any, List
@@ -89,20 +90,23 @@ class LeadHarvesterWorkflow(BaseWorkflow):
         places = []
         try:
             from core.auto_prospector import AutoProspector
-            prospector = AutoProspector(headless=True)
-            report = await asyncio.to_thread(prospector.discover_leads, query, location, limit=limit)
+            prospector = AutoProspector(headless=True, use_playwright=False)
+            report = await asyncio.to_thread(
+                prospector.discover_leads,
+                niche_or_query=query,
+                location=location,
+                limit=limit,
+                exclude_previously_seen=True,
+                auto_expand=True
+            )
             if report and hasattr(report, "leads"):
                 places = [lead.model_dump() for lead in report.leads]
         except Exception as e:
-            logger.warning(f"Maps scraper fallback: {e}")
-            # Realistic synthetic places
-            places = [
-                {"name": f"{query.split()[0]} Studio", "rating": 4.6, "reviews_count": 84, "website": "https://example-studio.com", "phone": "+1 512-555-0192", "address": f"104 Main St, {location}"},
-                {"name": f"Artisan {query.split()[0]} Lab", "rating": 4.8, "reviews_count": 142, "website": "https://artisan-lab.com", "phone": "+1 512-555-0144", "address": f"220 Congress Ave, {location}"},
-                {"name": f"Urban {query.split()[0]} Co", "rating": 4.2, "reviews_count": 39, "website": "https://urban-co.com", "phone": "+1 512-555-0188", "address": f"701 S Lamar, {location}"},
-            ]
+            logger.error(f"Lead harvester error: {e}")
+            await log(f"Lead harvesting encounter notice: {e}", "warn")
+            places = []
 
-        await log(f"Retrieved {len(places)} business listings from Maps directory.", "info")
+        await log(f"Retrieved {len(places)} business listings from directory.", "info")
         return {"scraped_places": places}
 
     async def _handle_website_check(self, context: Dict[str, Any], log) -> Dict[str, Any]:
@@ -121,12 +125,20 @@ class LeadHarvesterWorkflow(BaseWorkflow):
         await log("Resolving Instagram & TikTok handles from website footprints...", "info")
         with_social = []
         for idx, p in enumerate(places):
-            clean_name = p.get("name", "brand").lower().replace(" ", "")
-            handle = f"@{clean_name}"
+            # Prioritize already verified handle from AutoProspector
+            existing_handle = p.get("instagram_handle")
+            if existing_handle:
+                handle = f"@{existing_handle.lstrip('@')}"
+            else:
+                clean_name = p.get("name", "brand").lower().replace(" ", "")
+                handle = f"@{clean_name}"
+
             p["instagram_handle"] = handle
-            p["followers"] = 3200 + (idx * 1450)
+            # Never fabricate fake follower counts; keep actual or note unverified
+            p["followers"] = p.get("followers") or 0
+            p["followers_verified"] = False
             with_social.append(p)
-            await log(f"   ✓ {p.get('name')}: resolved {handle} ({p['followers']:,} followers)", "info")
+            await log(f"   ✓ {p.get('name')}: resolved {handle} (Audience verified by real reviews: {p.get('reviews_count') or p.get('review_count') or 'N/A'})", "info")
         return {"leads_with_social": with_social}
 
     async def _handle_lead_scoring(self, context: Dict[str, Any], log) -> Dict[str, Any]:
@@ -134,7 +146,20 @@ class LeadHarvesterWorkflow(BaseWorkflow):
         await log("Calculating digital presence and revamp opportunity score...", "info")
         scored = []
         for item in leads:
-            score = round(min(100, max(20, (item.get("rating", 4.0) * 15) + (item.get("reviews_count", 50) / 10))), 1)
+            raw_rating = item.get("rating")
+            try:
+                rating_val = float(raw_rating) if raw_rating is not None else 4.0
+            except (ValueError, TypeError):
+                rating_val = 4.0
+
+            raw_revs = item.get("reviews_count") or item.get("review_count") or item.get("reviews")
+            try:
+                revs_clean = re.sub(r"[^\d]", "", str(raw_revs)) if raw_revs is not None else ""
+                revs_val = float(revs_clean) if revs_clean else 50.0
+            except (ValueError, TypeError):
+                revs_val = 50.0
+
+            score = round(min(100.0, max(20.0, (rating_val * 15.0) + (revs_val / 10.0))), 1)
             item["opportunity_score"] = score
             scored.append(item)
         scored.sort(key=lambda x: x.get("opportunity_score", 0), reverse=True)

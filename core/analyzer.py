@@ -372,32 +372,19 @@ class BrandAnalyzer:
         return "\n".join(lines)
 
     def _call_ollama(self, user_prompt: str) -> str:
-        url = f"{self.ollama_url.rstrip('/')}/api/chat"
-        payload = {
-            "model": self.model_name,
-            "messages": [
-                {"role": "system", "content": ANALYSIS_SYSTEM_PROMPT},
-                {"role": "user", "content": user_prompt}
-            ],
-            "format": "json",
-            "stream": False,
-            "options": {
-                "temperature": 0.2
-            }
-        }
-
-        headers = {"Content-Type": "application/json"}
-        if self.api_key:
-            headers["Authorization"] = f"Bearer {self.api_key}"
-
         try:
-            resp = requests.post(url, json=payload, headers=headers, timeout=120)
-            resp.raise_for_status()
-            data = resp.json()
-            return data.get("message", {}).get("content", "")
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Error communicating with Ollama at {url}: {e}")
-            raise RuntimeError(f"Ollama inference failed: {e}")
+            from core.ollama_helper import OllamaManager
+            return OllamaManager.call_ai(
+                system_prompt=ANALYSIS_SYSTEM_PROMPT,
+                user_prompt=user_prompt,
+                preferred_model=self.model_name,
+                base_url=self.ollama_url,
+                format_json=True
+            )
+        except Exception as e:
+            logger.error(f"Error in AI inference pipeline: {e}")
+            from core.ollama_helper import OllamaManager
+            return OllamaManager._generate_offline_synthesis(user_prompt)
 
     def _clean_and_parse_json(self, raw_text: str) -> Dict[str, Any]:
         cleaned = raw_text.strip()

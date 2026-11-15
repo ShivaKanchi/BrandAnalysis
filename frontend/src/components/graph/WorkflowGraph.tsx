@@ -12,7 +12,7 @@ import {
   Edge,
   MarkerType,
 } from '@xyflow/react';
-import { Play, Square, RotateCcw, Activity } from 'lucide-react';
+import { Play, Square, RotateCcw, Activity, AlertCircle, X } from 'lucide-react';
 import { CustomNode } from './CustomNode';
 import { NodeInspectDrawer } from './NodeInspectDrawer';
 import { WORKFLOW_PRESETS } from '@/lib/mockData';
@@ -42,6 +42,7 @@ export function WorkflowGraph({
   const [selectedPresetId, setSelectedPresetId] = useState<string>(currentWorkflowId);
   const [inspectedNode, setInspectedNode] = useState<WorkflowNodeData | null>(null);
   const [activeRunningNodeId, setActiveRunningNodeId] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [executionStats, setExecutionStats] = useState<{
     elapsedSeconds: number;
     completedCount: number;
@@ -148,45 +149,142 @@ export function WorkflowGraph({
     }
   }, [nodes, inspectedNode]);
 
-  // Workflow run simulation / SSE subscriber
+  // Real Workflow SSE event subscriber
   useEffect(() => {
     if (!isRunning) {
       setActiveRunningNodeId(null);
       return;
     }
 
-    let currentIndex = 0;
-    const nodeSequence = currentPreset.nodes.map((n) => n.id);
+    setErrorMessage(null);
     let eventSource: EventSource | null = null;
+    const startTime = Date.now();
+    const timer = setInterval(() => {
+      setExecutionStats((prev) => ({
+        ...prev,
+        elapsedSeconds: Math.floor((Date.now() - startTime) / 1000),
+      }));
+    }, 1000);
 
     try {
       const sseUrl = `/api/workflows/${selectedPresetId}/run?target=${encodeURIComponent(
-        targetInput || 'default'
+        targetInput || ''
       )}`;
       eventSource = new EventSource(sseUrl);
 
       eventSource.onmessage = (event) => {
         try {
           const payload = JSON.parse(event.data);
-          if (payload.nodeId) {
+          const eventType = payload.event;
+          const nodeId = payload.node_id || payload.nodeId;
+
+          if (eventType === 'node_start' && nodeId) {
+            setActiveRunningNodeId(nodeId);
             setNodes((nds) =>
               nds.map((node) => {
-                if (node.id === payload.nodeId) {
+                if (node.id === nodeId) {
+                  const prevLogs = (node.data as any).logs || [];
                   return {
                     ...node,
                     data: {
                       ...node.data,
-                      status: payload.status || 'running',
-                      logs: payload.logs || (node.data as any).logs,
-                      durationMs: payload.durationMs || (node.data as any).durationMs,
-                      outputArtifacts: payload.output || (node.data as any).outputArtifacts,
+                      status: 'running',
+                      logs: [
+                        ...prevLogs,
+                        `[${new Date().toLocaleTimeString()}] Node started: ${payload.label || nodeId}`,
+                      ],
                     },
                   };
                 }
                 return node;
               })
             );
+          } else if (eventType === 'node_log' && nodeId) {
+            const logEntry = payload.log;
+            const logMsg = typeof logEntry === 'object' && logEntry !== null
+              ? `[${logEntry.time || new Date().toLocaleTimeString()}] ${logEntry.message}`
+              : String(logEntry);
+
+            setNodes((nds) =>
+              nds.map((node) => {
+                if (node.id === nodeId) {
+                  const prevLogs = (node.data as any).logs || [];
+                  return {
+                    ...node,
+                    data: {
+                      ...node.data,
+                      logs: [...prevLogs, logMsg],
+                    },
+                  };
+                }
+                return node;
+              })
+            );
+          } else if (eventType === 'node_complete' && nodeId) {
+            const duration = payload.duration_ms || payload.durationMs || 0;
+            setNodes((nds) =>
+              nds.map((node) => {
+                if (node.id === nodeId) {
+                  const prevLogs = (node.data as any).logs || [];
+                  return {
+                    ...node,
+                    data: {
+                      ...node.data,
+                      status: 'completed',
+                      durationMs: duration,
+                      outputArtifacts: payload.output || {},
+                      logs: [
+                        ...prevLogs,
+                        `[${new Date().toLocaleTimeString()}] Completed in ${duration}ms`,
+                      ],
+                    },
+                  };
+                }
+                return node;
+              })
+            );
+            setExecutionStats((prev) => ({
+              ...prev,
+              completedCount: prev.completedCount + 1,
+            }));
+
+            if (payload.output?.saved_lead && onLeadDiscovered) {
+              onLeadDiscovered(payload.output.saved_lead);
+            }
+          } else if (eventType === 'node_error' && nodeId) {
+            const err = payload.error || 'Execution encountered an error in node';
+            setErrorMessage(`Node [${nodeId}] error: ${err}`);
+            setNodes((nds) =>
+              nds.map((node) => {
+                if (node.id === nodeId) {
+                  const prevLogs = (node.data as any).logs || [];
+                  return {
+                    ...node,
+                    data: {
+                      ...node.data,
+                      status: 'error',
+                      logs: [
+                        ...prevLogs,
+                        `[${new Date().toLocaleTimeString()}] ERROR: ${err}`,
+                      ],
+                    },
+                  };
+                }
+                return node;
+              })
+            );
+            setActiveRunningNodeId(null);
+            if (onRunToggle) onRunToggle();
+            eventSource?.close();
+          } else if (eventType === 'workflow_complete') {
+            setActiveRunningNodeId(null);
+            if (payload.status === 'error') {
+              setErrorMessage('Workflow finished with errors. Inspect the marked red node for details.');
+            }
+            if (onRunToggle) onRunToggle();
+            eventSource?.close();
           }
+
           if (payload.lead && onLeadDiscovered) {
             onLeadDiscovered(payload.lead);
           }
@@ -196,82 +294,27 @@ export function WorkflowGraph({
       };
 
       eventSource.onerror = () => {
-        eventSource?.close();
-      };
-    } catch {
-      // Backend not yet reachable
-    }
-
-    const interval = setInterval(() => {
-      if (currentIndex < nodeSequence.length) {
-        const nodeId = nodeSequence[currentIndex];
-        setActiveRunningNodeId(nodeId);
-
-        setNodes((nds) =>
-          nds.map((n) => {
-            if (n.id === nodeId) {
-              const currentLogs = (n.data as any).logs || [];
-              return {
-                ...n,
-                data: {
-                  ...n.data,
-                  status: 'running',
-                  logs: [
-                    ...currentLogs,
-                    `[${new Date().toLocaleTimeString()}] Executing step: ${n.data.label}...`,
-                    `[${new Date().toLocaleTimeString()}] Telemetry analysis for ${targetInput || 'lumina-skin.com'}`,
-                  ],
-                },
-              };
-            }
-            return n;
-          })
-        );
-
-        setTimeout(() => {
-          setNodes((nds) =>
-            nds.map((n) => {
-              if (n.id === nodeId) {
-                const currentLogs = (n.data as any).logs || [];
-                return {
-                  ...n,
-                  data: {
-                    ...n.data,
-                    status: 'completed',
-                    durationMs: Math.floor(Math.random() * 800 + 400),
-                    logs: [
-                      ...currentLogs,
-                      `[${new Date().toLocaleTimeString()}] Step completed cleanly (code 200).`,
-                    ],
-                  },
-                };
-              }
-              return n;
-            })
-          );
-          setExecutionStats((prev) => ({
-            ...prev,
-            completedCount: prev.completedCount + 1,
-          }));
-        }, 1200);
-
-        currentIndex++;
-      } else {
-        clearInterval(interval);
+        setErrorMessage('Workflow connection disconnected. Ensure backend server is running on port 8000.');
         setActiveRunningNodeId(null);
         if (onRunToggle && isRunning) {
           onRunToggle();
         }
+        eventSource?.close();
+      };
+    } catch (e: any) {
+      setErrorMessage(`Failed to initiate workflow stream: ${e?.message || e}`);
+      if (onRunToggle && isRunning) {
+        onRunToggle();
       }
-    }, 1500);
+    }
 
     return () => {
-      clearInterval(interval);
+      clearInterval(timer);
       if (eventSource) {
         eventSource.close();
       }
     };
-  }, [isRunning, currentPreset, targetInput, selectedPresetId, onLeadDiscovered, onRunToggle, setNodes]);
+  }, [isRunning, targetInput, selectedPresetId, onLeadDiscovered, onRunToggle, setNodes]);
 
   const handleReset = () => {
     setNodes(initialNodes);
@@ -367,6 +410,23 @@ export function WorkflowGraph({
           </button>
         </div>
       </div>
+
+      {/* User Error & Feedback Notification Banner */}
+      {errorMessage && (
+        <div className="px-4 py-2.5 bg-error/10 border-b border-error/30 text-error text-xs flex items-center justify-between gap-3 z-20">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0 text-error" />
+            <span className="font-medium">{errorMessage}</span>
+          </div>
+          <button
+            onClick={() => setErrorMessage(null)}
+            className="p-1 hover:bg-error/20 text-error rounded transition-colors"
+            title="Dismiss error"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* Main React Flow Canvas */}
       <div className="flex-1 w-full h-full relative">

@@ -54,7 +54,7 @@ class LighthouseAuditor:
 
         # 1. Try Google PageSpeed Insights API
         try:
-            api_result = self._query_pagespeed_api(url, strategy=strategy, timeout=timeout)
+            api_result = self._query_pagespeed_api(url, strategy=strategy, timeout=min(timeout, 3))
             if api_result:
                 return api_result
         except Exception as e:

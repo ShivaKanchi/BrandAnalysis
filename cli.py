@@ -38,8 +38,9 @@ def main():
     parser.add_argument("--no-competitors", action="store_true", help="Skip web search competitor analysis")
     parser.add_argument("--export-prefix", type=str, default="", help="Custom filename prefix for report export")
 
-    # New flags for Auto-Prospecting & Problem Radar & History
+    # Flags for Auto-Prospecting & Problem Radar & History
     parser.add_argument("--prospect", "-P", type=str, help="Auto-prospect businesses in a niche near a location (e.g. 'Gyms')")
+    parser.add_argument("--browser", action="store_true", help="Launch Playwright browser for deep Google Maps scraping (default: fast multi-tier engine)")
     parser.add_argument("--radar", "-R", action="store_true", help="Run Software Engineer Problem & Micro-SaaS Radar")
     parser.add_argument("--limit", type=int, default=8, help="Limit items for prospecting or radar (default: 8)")
     parser.add_argument("--history", action="store_true", help="List all saved past analyses and comeback reports")
@@ -107,16 +108,25 @@ def main():
         console.rule(f"[bold cyan]📍 Auto-Prospecting: {args.prospect} in {args.location or 'Local Region'}[/bold cyan]")
         from core.auto_prospector import AutoProspector
         loc = args.location or Prompt.ask("[bold yellow]Enter Target Locality / City[/bold yellow]")
-        with console.status(f"[bold green]Scraping Google Maps for '{args.prospect}' in '{loc}' & resolving Instagram handles...", spinner="dots"):
-            prospector = AutoProspector(headless=not args.no_headless)
-            lead_report = prospector.discover_leads(niche_or_query=args.prospect, location=loc, limit=args.limit)
+        with console.status(f"[bold green]Harvesting fresh leads for '{args.prospect}' in '{loc}' & checking registry...", spinner="dots"):
+            prospector = AutoProspector(headless=not args.no_headless, use_playwright=args.browser)
+            lead_report = prospector.discover_leads(
+                niche_or_query=args.prospect,
+                location=loc,
+                limit=args.limit,
+                exclude_previously_seen=True,
+                auto_expand=True
+            )
         
-        console.print(f"\n[bold green]Found {lead_report.total_places_scanned} places ({lead_report.leads_with_instagram} verified Instagram handles):[/bold green]\n")
+        console.print(f"\n[bold green]✓ Discovered {lead_report.fresh_leads_count} fresh leads ({lead_report.recycled_leads_skipped} duplicates skipped, {lead_report.high_intent_count} high-intent):[/bold green]\n")
         for idx, lead in enumerate(lead_report.leads, 1):
             ig_str = f"[magenta]@{lead.instagram_handle}[/magenta]" if lead.instagram_handle else "[dim]None[/dim]"
-            console.print(f"[bold]{idx}. {lead.business_name}[/bold] (⭐ {lead.rating or 'N/A'}) - IG: {ig_str}")
+            intent_color = "green" if lead.lead_intent_score == "High Intent" else "yellow" if lead.lead_intent_score == "Promising" else "dim"
+            console.print(f"[bold]{idx}. {lead.business_name}[/bold] [{intent_color}][{lead.lead_intent_score}][/{intent_color}] (⭐ {lead.rating or 'N/A'}, {lead.review_count or '0'} reviews) - IG: {ig_str}")
             if lead.website:
                 console.print(f"   [dim]Site: {lead.website}[/dim]")
+            if lead.opportunity_angle:
+                console.print(f"   [cyan]Pitch: {lead.opportunity_angle}[/cyan]")
         
         out_file = Path("reports") / f"leads_{loc.replace(' ', '_')}.json"
         out_file.parent.mkdir(parents=True, exist_ok=True)

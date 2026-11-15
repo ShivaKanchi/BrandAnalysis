@@ -1,5 +1,169 @@
 [
   {
+    "domain": "apexorganic-park.com",
+    "store_name": "Apexorganic park",
+    "platform": "other",
+    "is_shopify": false,
+    "followers": 0,
+    "engagement_rate": 0.0,
+    "social_handle": "@apexorganic-park",
+    "social_url": "https://instagram.com/apexorganic-park",
+    "lighthouse_performance": 46.0,
+    "lighthouse_seo": 75.0,
+    "lighthouse_accessibility": 78.0,
+    "console_errors_count": 0,
+    "console_error_logs": [],
+    "vision_score": 56,
+    "vision_critique": "The storefront exhibits functional eCommerce infrastructure but suffers from legacy layout patterns, slow visual hierarchy resolution, and dated visual elements that decrease mobile conversion confidence.",
+    "vision_bad_patterns": [
+      "Cluttered multi-level navigation dropdown causing mobile menu overflow",
+      "Oversized static hero banner lacking clear contrast and primary CTA visibility",
+      "Outdated typography scale with insufficient line-height for mobile reading"
+    ],
+    "vision_revamp_suggestions": [
+      "Upgrade to modern minimalist editorial typography with refined spacing & micro-copy",
+      "Implement high-converting sticky slide-out cart drawer with free shipping progress bar",
+      "Redesign hero into dynamic mobile-first split layout highlighting bestseller collection"
+    ],
+    "pitch_email": "Hello Apexorganic park Team,\n\nWe audited your store at apexorganic-park.com and found performance is currently within normal operating thresholds.",
+    "pitch_dm": "Hey Apexorganic park! Took a quick look at apexorganic-park.com — overall looking solid!",
+    "redesign_blueprint": [
+      "Routine CDN cache updates"
+    ],
+    "qualified_for_revamp": false,
+    "qualification_reasons": [
+      "Platform is not Shopify."
+    ],
+    "status": "Non-Shopify",
+    "niche": "Organic Skincare Brands in Austin",
+    "id": "apexorganic-park.com",
+    "created_at": "2026-11-16T03:38:32.497401",
+    "updated_at": "2026-11-16T03:38:32.497401"
+  },
+  {
+    "domain": "apexorganic-heights.com",
+    "store_name": "Apexorganic heights",
+    "platform": "other",
+    "is_shopify": false,
+    "followers": 0,
+    "engagement_rate": 0.0,
+    "social_handle": "@apexorganic-heights",
+    "social_url": "https://instagram.com/apexorganic-heights",
+    "lighthouse_performance": 46.0,
+    "lighthouse_seo": 75.0,
+    "lighthouse_accessibility": 78.0,
+    "console_errors_count": 0,
+    "console_error_logs": [],
+    "vision_score": 56,
+    "vision_critique": "The storefront exhibits functional eCommerce infrastructure but suffers from legacy layout patterns, slow visual hierarchy resolution, and dated visual elements that decrease mobile conversion confidence.",
+    "vision_bad_patterns": [
+      "Cluttered multi-level navigation dropdown causing mobile menu overflow",
+      "Oversized static hero banner lacking clear contrast and primary CTA visibility",
+      "Outdated typography scale with insufficient line-height for mobile reading"
+    ],
+    "vision_revamp_suggestions": [
+      "Upgrade to modern minimalist editorial typography with refined spacing & micro-copy",
+      "Implement high-converting sticky slide-out cart drawer with free shipping progress bar",
+      "Redesign hero into dynamic mobile-first split layout highlighting bestseller collection"
+    ],
+    "pitch_email": "Hello Apexorganic heights Team,\n\nWe audited your store at apexorganic-heights.com and found performance is currently within normal operating thresholds.",
+    "pitch_dm": "Hey Apexorganic heights! Took a quick look at apexorganic-heights.com — overall looking solid!",
+    "redesign_blueprint": [
+      "Routine CDN cache updates"
+    ],
+    "qualified_for_revamp": false,
+    "qualification_reasons": [
+      "Platform is not Shopify."
+    ],
+    "status": "Non-Shopify",
+    "niche": "Organic Skincare Brands in Austin",
+    "id": "apexorganic-heights.com",
+    "created_at": "2026-11-16T03:37:57.123419",
+    "updated_at": "2026-11-16T03:37:57.123419"
+  },
+  {
+    "domain": "apexorganic-junction.com",
+    "store_name": "Apexorganic junction",
+    "platform": "other",
+    "is_shopify": false,
+    "followers": 0,
+    "engagement_rate": 0.0,
+    "social_handle": "@apexorganic-junction",
+    "social_url": "https://instagram.com/apexorganic-junction",
+    "lighthouse_performance": 46.0,
+    "lighthouse_seo": 75.0,
+    "lighthouse_accessibility": 78.0,
+    "console_errors_count": 0,
+    "console_error_logs": [],
+    "vision_score": 56,
+    "vision_critique": "The storefront exhibits functional eCommerce infrastructure but suffers from legacy layout patterns, slow visual hierarchy resolution, and dated visual elements that decrease mobile conversion confidence.",
+    "vision_bad_patterns": [
+      "Cluttered multi-level navigation dropdown causing mobile menu overflow",
+      "Oversized static hero banner lacking clear contrast and primary CTA visibility",
+      "Outdated typography scale with insufficient line-height for mobile reading"
+    ],
+    "vision_revamp_suggestions": [
+      "Upgrade to modern minimalist editorial typography with refined spacing & micro-copy",
+      "Implement high-converting sticky slide-out cart drawer with free shipping progress bar",
+      "Redesign hero into dynamic mobile-first split layout highlighting bestseller collection"
+    ],
+    "pitch_email": "Hello Apexorganic junction Team,\n\nWe audited your store at apexorganic-junction.com and found performance is currently within normal operating thresholds.",
+    "pitch_dm": "Hey Apexorganic junction! Took a quick look at apexorganic-junction.com — overall looking solid!",
+    "redesign_blueprint": [
+      "Routine CDN cache updates"
+    ],
+    "qualified_for_revamp": false,
+    "qualification_reasons": [
+      "Platform is not Shopify."
+    ],
+    "status": "Non-Shopify",
+    "niche": "Organic Skincare Brands in Austin",
+    "id": "apexorganic-junction.com",
+    "created_at": "2026-11-16T03:37:10.041301",
+    "updated_at": "2026-11-16T03:37:10.041301"
+  },
+  {
+    "domain": "apexorganic-square.com",
+    "store_name": "Apexorganic square",
+    "platform": "other",
+    "is_shopify": false,
+    "followers": 0,
+    "engagement_rate": 0.0,
+    "social_handle": "@apexorganic-square",
+    "social_url": "https://instagram.com/apexorganic-square",
+    "lighthouse_performance": 46.0,
+    "lighthouse_seo": 75.0,
+    "lighthouse_accessibility": 78.0,
+    "console_errors_count": 0,
+    "console_error_logs": [],
+    "vision_score": 56,
+    "vision_critique": "The storefront exhibits functional eCommerce infrastructure but suffers from legacy layout patterns, slow visual hierarchy resolution, and dated visual elements that decrease mobile conversion confidence.",
+    "vision_bad_patterns": [
+      "Cluttered multi-level navigation dropdown causing mobile menu overflow",
+      "Oversized static hero banner lacking clear contrast and primary CTA visibility",
+      "Outdated typography scale with insufficient line-height for mobile reading"
+    ],
+    "vision_revamp_suggestions": [
+      "Upgrade to modern minimalist editorial typography with refined spacing & micro-copy",
+      "Implement high-converting sticky slide-out cart drawer with free shipping progress bar",
+      "Redesign hero into dynamic mobile-first split layout highlighting bestseller collection"
+    ],
+    "pitch_email": "Hello Apexorganic square Team,\n\nWe audited your store at apexorganic-square.com and found performance is currently within normal operating thresholds.",
+    "pitch_dm": "Hey Apexorganic square! Took a quick look at apexorganic-square.com — overall looking solid!",
+    "redesign_blueprint": [
+      "Routine CDN cache updates"
+    ],
+    "qualified_for_revamp": false,
+    "qualification_reasons": [
+      "Platform is not Shopify."
+    ],
+    "status": "Non-Shopify",
+    "niche": "Organic Skincare Brands in Austin",
+    "id": "apexorganic-square.com",
+    "created_at": "2026-11-16T03:36:21.522646",
+    "updated_at": "2026-11-16T03:36:21.522646"
+  },
+  {
     "domain": "aloyoga.com",
     "store_name": "Alo Yoga",
     "platform": "shopify",

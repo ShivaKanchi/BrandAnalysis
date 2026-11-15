@@ -20,9 +20,9 @@ logging.basicConfig(
 logger = logging.getLogger("BrandAnalysis.Server")
 
 app = FastAPI(
-    title="BrandAnalysis AI Workflow Engine API",
-    description="FastAPI service powering agentic DAG automations, live SSE telemetry, and brand intelligence.",
-    version="2.0.0",
+    title="BrandAnalysis Lead Generation & Intelligence API",
+    description="High-intent lead harvesting, local prospecting, store lead farming, and client acquisition.",
+    version="1.0.0",
 )
 
 # Enable CORS for Next.js frontend (port 3000) and all client origins

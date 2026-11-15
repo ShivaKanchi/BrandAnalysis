@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'BrandAnalysis: Autonomous Agency Intelligence and Shopify Revamp Platform',
-  description: 'Workflow DAG engine for automated store audits, speed diagnostics, console error interception, and revamp pitch generation.',
+  title: 'BrandAnalysis: Autonomous Lead Generation & Brand Intelligence Platform',
+  description: 'High-intent lead generation, automated prospect farming, performance diagnostics, and client acquisition.',
 };
 
 export default function RootLayout({

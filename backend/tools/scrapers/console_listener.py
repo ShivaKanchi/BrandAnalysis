@@ -52,7 +52,10 @@ class ConsoleListener:
             return self._http_fallback_audit(url)
 
         try:
-            return await asyncio.to_thread(self._run_sync_playwright_audit, url, timeout_seconds)
+            return await asyncio.wait_for(
+                asyncio.to_thread(self._run_sync_playwright_audit, url, min(timeout_seconds, 6)),
+                timeout=6.0
+            )
         except Exception as e:
             logger.warning(f"Playwright execution failed or timed out: {e}. Executing HTTP fallback auditor...")
             return self._http_fallback_audit(url)

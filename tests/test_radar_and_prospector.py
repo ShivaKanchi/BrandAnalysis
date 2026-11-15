@@ -37,9 +37,108 @@ def test_problem_radar_synthesis():
     assert first_prob.recommended_microsaas.product_name_concept
     assert len(first_prob.recommended_microsaas.mvp_features) > 0
 
+from unittest.mock import patch, MagicMock
+from core.storage import StorageManager
+
+def test_auto_prospector_intent_evaluation():
+    prospector = AutoProspector(headless=True)
+    
+    # 1. High-Intent Lead with real customer foot traffic
+    high_lead = {
+        "name": "Apex Fitness Hub",
+        "rating": "4.8",
+        "reviews": "142",
+        "phone": "+1 555-1234",
+        "address": "Downtown"
+    }
+    intent, signals, angle = prospector._evaluate_lead_intent(
+        place=high_lead,
+        ig_handle="apexfitness",
+        website="https://apexfitness.com"
+    )
+    assert intent == "High Intent"
+    assert any("High Foot Traffic" in s for s in signals)
+    assert any("Dedicated Domain Funnel" in s for s in signals)
+
+    # 2. Promising Lead with missing custom website funnel (linktree / wa.me)
+    promising_lead = {
+        "name": "Urban Yoga Loft",
+        "rating": "4.5",
+        "reviews": "28",
+        "phone": "+1 555-5678"
+    }
+    intent2, signals2, angle2 = prospector._evaluate_lead_intent(
+        place=promising_lead,
+        ig_handle="urbanyoga",
+        website="https://linktr.ee/urbanyoga"
+    )
+    assert intent2 == "Promising"
+    assert any("Missing Custom Website" in s for s in signals2)
+    assert "booking funnel" in angle2.lower()
+
+    # 3. Ghost / Fake profile risk (0 reviews, no website, unverified)
+    ghost_lead = {
+        "name": "Phantom Gym",
+        "rating": None,
+        "reviews": "0"
+    }
+    intent3, signals3, angle3 = prospector._evaluate_lead_intent(
+        place=ghost_lead,
+        ig_handle=None,
+        website=None
+    )
+    assert intent3 == "Low Intent / Ghost"
+    assert any("Low/Zero Reviews" in s for s in signals3)
+
+def test_lead_registry_deduplication():
+    # Clear registry for clean test isolation
+    StorageManager.clear_leads_registry()
+    test_leads = [
+        DiscoveredLeadItem(
+            business_name="Test Apex Gym",
+            address_or_location="Kandivali, Mumbai",
+            website="https://testapexgym.com",
+            instagram_handle="testapexgym",
+            rating="4.8",
+            review_count="95",
+            lead_intent_score="High Intent"
+        )
+    ]
+    saved_count = StorageManager.save_leads_batch(test_leads, query="Gyms in Kandivali", location="Kandivali")
+    assert saved_count >= 1
+
+    # Check that lead is recognized as registered
+    assert StorageManager.is_lead_registered("Test Apex Gym", location="Kandivali")
+    assert StorageManager.is_lead_registered("Test Apex Gym")
+    assert StorageManager.is_lead_registered("Other Name", ig_handle="testapexgym")
+    StorageManager.clear_leads_registry()
+
+def test_query_variant_generation():
+    prospector = AutoProspector(headless=True)
+    variants = prospector._generate_query_variants("Gyms", "Kandivali, Mumbai")
+    assert len(variants) >= 4
+    assert any("West" in v for v in variants)
+    assert any("Fitness" in v or "Training" in v or "CrossFit" in v for v in variants)
+
 def test_auto_prospector_instagram_extraction():
     prospector = AutoProspector(headless=True)
-    # Test website social link extraction
-    # aurum.fit was previously verified to have aurum.bangalore
-    handle = prospector._extract_instagram_from_website("https://aurum.fit/")
-    assert handle == "aurum.bangalore"
+    mock_html = """
+    <html>
+      <head>
+        <script type="application/ld+json">
+          {"@context": "https://schema.org", "sameAs": ["https://www.instagram.com/mockbrand_official/"]}
+        </script>
+      </head>
+      <body>
+        <a href="https://www.instagram.com/mockbrand_official/">Follow us on IG</a>
+      </body>
+    </html>
+    """
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.text = mock_html
+
+    with patch("requests.get", return_value=mock_resp):
+        handle = prospector._extract_instagram_from_website("https://mockbrand.com")
+        assert handle == "mockbrand_official"
+

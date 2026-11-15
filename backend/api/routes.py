@@ -20,9 +20,14 @@ router = APIRouter(prefix="/api")
 def list_workflows():
     """Returns list of all available automation workflows with their initial React Flow DAG graph."""
     graphs = []
+    seen = set()
     for wid in WORKFLOW_REGISTRY.keys():
+        clean_id = wid.replace("-", "_")
+        if clean_id in seen:
+            continue
+        seen.add(clean_id)
         try:
-            wf = get_workflow(wid)
+            wf = get_workflow(clean_id)
             graphs.append(wf.get_graph())
         except Exception as e:
             logger.error(f"Error loading workflow {wid}: {e}")
@@ -147,6 +152,73 @@ def export_leads_csv():
 
 
 # ---------------------------------------------------------------------------
+# Direct Lead Harvesting Endpoint (Powers Next.js & UI Prospectors)
+# ---------------------------------------------------------------------------
+
+@router.get("/harvest")
+@router.post("/harvest")
+async def harvest_leads(
+    niche: str = Query("Gyms", description="Business category or vertical"),
+    location: str = Query("Austin, TX", description="City, locality, or postal code"),
+    limit: int = Query(6, ge=1, le=30, description="Max fresh leads to discover"),
+    fresh_only: bool = Query(True, description="Filter out previously harvested leads"),
+    auto_expand: bool = Query(True, description="Rotate sub-neighborhoods if top results are saturated"),
+):
+    """
+    Harvests fresh, high-intent business leads.
+    Automatically de-duplicates against the persistent registry and guarantees new leads on every call.
+    """
+    try:
+        from core.auto_prospector import AutoProspector
+        prospector = AutoProspector(headless=True)
+        report = prospector.discover_leads(
+            niche_or_query=niche,
+            location=location,
+            limit=limit,
+            exclude_previously_seen=fresh_only,
+            auto_expand=auto_expand,
+        )
+        leads_list = [lead.model_dump() for lead in report.leads]
+        return {
+            "success": True,
+            "target_query": report.search_query,
+            "locality": report.target_locality,
+            "total_places_scanned": report.total_places_scanned,
+            "fresh_leads_count": report.fresh_leads_count,
+            "recycled_leads_skipped": report.recycled_leads_skipped,
+            "high_intent_count": report.high_intent_count,
+            "total_registry_leads": report.total_registry_leads,
+            "leads": leads_list,
+        }
+    except Exception as e:
+        logger.error(f"Error harvesting leads: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "leads": [],
+            "fresh_leads_count": 0,
+        }
+
+
+# ---------------------------------------------------------------------------
+# Ollama AI Connectivity & Model Discovery
+# ---------------------------------------------------------------------------
+
+@router.get("/ollama/status")
+def get_ollama_status():
+    """Returns local Ollama health status, available models, and setup recommendations."""
+    try:
+        from core.ollama_helper import OllamaManager
+        return OllamaManager.check_status()
+    except Exception as e:
+        return {
+            "online": False,
+            "error": str(e),
+            "status_message": "Could not check Ollama status."
+        }
+
+
+# ---------------------------------------------------------------------------
 # Application Settings & Thresholds Endpoints
 # ---------------------------------------------------------------------------
 
@@ -178,7 +250,7 @@ def health_check():
     """Service health probe."""
     return {
         "status": "healthy",
-        "service": "BrandAnalysis Workflow Engine",
-        "version": "2.0.0",
+        "service": "BrandAnalysis Lead Generation Engine",
+        "version": "1.0.0",
         "active_workflows": list(WORKFLOW_REGISTRY.keys()),
     }

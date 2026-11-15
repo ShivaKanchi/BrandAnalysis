@@ -135,7 +135,7 @@ def detect_shopify_from_html(html: str, base_url: str = "") -> ShopifyDetectionR
     )
 
 
-def detect_shopify(url: str, timeout: int = 15) -> ShopifyDetectionResult:
+def detect_shopify(url: str, timeout: int = 4) -> ShopifyDetectionResult:
     """
     Synchronously verify if a URL is a Shopify store.
     Probes root HTML, HTTP headers, redirects, and /cart.json endpoint.

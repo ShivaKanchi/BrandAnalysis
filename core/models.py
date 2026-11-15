@@ -194,7 +194,12 @@ class DiscoveredLeadItem(BaseModel):
     rating: Optional[str] = Field(None, description="Google Maps rating (e.g. '4.8')")
     review_count: Optional[str] = Field(None, description="Total review count")
     phone: Optional[str] = Field(None, description="Business phone number if visible")
-    lead_status: Literal["Instagram Verified", "Website Only (No IG)", "Maps Only"] = "Instagram Verified"
+    lead_status: Literal["Instagram Verified", "Website Only (No IG)", "Maps Only", "Locality Verified"] = "Instagram Verified"
+    lead_intent_score: Literal["High Intent", "Promising", "Low Intent / Ghost"] = Field("Promising", description="Intent rating based on verified customer activity and digital assets")
+    authenticity_signals: List[str] = Field(default_factory=list, description="Concrete proof points (reviews, verified domain, phone, etc.)")
+    opportunity_angle: Optional[str] = Field(None, description="Recommended outreach pitch angle based on funnel gaps")
+    is_fresh_lead: bool = Field(True, description="Whether this lead is freshly discovered vs previously seen")
+    first_discovered_at: Optional[str] = Field(None, description="Timestamp when lead was first recorded")
 
 
 class LeadProspectingReport(BaseModel):
@@ -202,6 +207,10 @@ class LeadProspectingReport(BaseModel):
     target_locality: str = Field(..., description="City or neighborhood searched")
     total_places_scanned: int = Field(0, description="Total Google Maps places evaluated")
     leads_with_instagram: int = Field(0, description="Leads where an Instagram handle was extracted")
+    fresh_leads_count: int = Field(0, description="Count of newly discovered leads not previously in registry")
+    recycled_leads_skipped: int = Field(0, description="Count of previously seen leads skipped to ensure fresh results")
+    high_intent_count: int = Field(0, description="Count of leads qualified as high intent")
+    total_registry_leads: int = Field(0, description="Total leads tracked in the historical registry")
     leads: List[DiscoveredLeadItem] = Field(default_factory=list, description="List of discovered business leads")
     created_at: str = Field(default_factory=lambda: datetime.now().isoformat())
 

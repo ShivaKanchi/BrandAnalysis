@@ -71,7 +71,8 @@ class VisionUXAuditor:
         desktop_file = self.output_dir / f"{domain_slug}_desktop.png"
         mobile_file = self.output_dir / f"{domain_slug}_mobile.png"
 
-        try:
+        import concurrent.futures
+        def _do_capture():
             from playwright.sync_api import sync_playwright
             with sync_playwright() as p:
                 browser = p.chromium.launch(
@@ -82,9 +83,9 @@ class VisionUXAuditor:
                 # Desktop screenshot
                 ctx_desktop = browser.new_context(viewport={"width": 1440, "height": 900})
                 page_desktop = ctx_desktop.new_page()
-                page_desktop.goto(url, timeout=25000, wait_until="load")
-                page_desktop.wait_for_timeout(2000)
-                page_desktop.screenshot(path=str(desktop_file), full_page=True)
+                page_desktop.goto(url, timeout=12000, wait_until="domcontentloaded")
+                page_desktop.wait_for_timeout(1000)
+                page_desktop.screenshot(path=str(desktop_file), full_page=False)
                 ctx_desktop.close()
 
                 # Mobile screenshot
@@ -96,16 +97,20 @@ class VisionUXAuditor:
                     )
                 )
                 page_mobile = ctx_mobile.new_page()
-                page_mobile.goto(url, timeout=25000, wait_until="load")
-                page_mobile.wait_for_timeout(2000)
-                page_mobile.screenshot(path=str(mobile_file), full_page=True)
+                page_mobile.goto(url, timeout=12000, wait_until="domcontentloaded")
+                page_mobile.wait_for_timeout(1000)
+                page_mobile.screenshot(path=str(mobile_file), full_page=False)
                 ctx_mobile.close()
 
                 browser.close()
                 return str(desktop_file), str(mobile_file)
 
+        try:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(_do_capture)
+                return future.result(timeout=6.0)
         except Exception as e:
-            logger.warning(f"Playwright screenshot capture failed: {e}")
+            logger.warning(f"Playwright screenshot capture skipped or timed out: {e}")
             return None, None
 
     def audit(self, url: str) -> VisionAuditResult:

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Header, ActiveModule } from '@/components/layout/Header';
 import { WorkflowGraph } from '@/components/graph/WorkflowGraph';
 import { LeadsTable } from '@/components/table/LeadsTable';
@@ -11,12 +11,11 @@ import { CompetitorMatrixView } from '@/components/modules/CompetitorMatrixView'
 import { ProblemRadarView } from '@/components/modules/ProblemRadarView';
 import { SavedReportsView } from '@/components/modules/SavedReportsView';
 import { useWorkflowAnnouncer } from '@/lib/uiSdkBehaviors';
-import { INITIAL_LEADS } from '@/lib/mockData';
 import { LeadItem, AuditThresholds } from '@/types/workflow';
 
 export default function Home() {
-  const [activeModule, setActiveModule] = useState<ActiveModule>('shopify-revamp');
-  const [leads, setLeads] = useState<LeadItem[]>(INITIAL_LEADS);
+  const [activeModule, setActiveModule] = useState<ActiveModule>('lead-harvester');
+  const [leads, setLeads] = useState<LeadItem[]>([]);
   const [targetInput, setTargetInput] = useState<string>('Organic Skincare Brands in Austin');
   const [isRunningAutomation, setIsRunningAutomation] = useState<boolean>(false);
   const [thresholds, setThresholds] = useState<AuditThresholds>({
@@ -24,6 +23,57 @@ export default function Home() {
     minFollowers: 2500,
     minConsoleErrors: 1,
   });
+
+  useEffect(() => {
+    fetch('/api/leads')
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          const mapped: LeadItem[] = data.map((l: any) => ({
+            id: l.id || l.domain,
+            domain: l.domain,
+            storeName: l.store_name || l.domain,
+            niche: l.niche || 'E-Commerce',
+            platform: l.platform || 'Shopify',
+            isShopify: l.is_shopify ?? true,
+            followers: l.followers || 0,
+            engagementRate: l.engagement_rate ? `${l.engagement_rate}%` : 'N/A',
+            lighthouseScore: l.lighthouse_performance || 0,
+            lighthouseMetrics: {
+              fcp: l.lighthouse_fcp || '2.4s',
+              lcp: l.lighthouse_lcp || '4.2s',
+              cls: '0.12',
+              speedIndex: '3.8s',
+              seo: l.lighthouse_seo || 85,
+              accessibility: l.lighthouse_accessibility || 80,
+            },
+            consoleErrorsCount: l.console_errors_count || 0,
+            consoleErrorsList: (l.console_error_logs || []).map((msg: string) => ({
+              type: 'error' as const,
+              message: msg,
+            })),
+            visionScore: l.vision_score || 60,
+            visionCritique: {
+              summary: l.vision_critique || '',
+              flaws: l.vision_bad_patterns || [],
+              revampIdeas: l.redesign_blueprint || l.vision_revamp_suggestions || [],
+            },
+            pitchEmail: {
+              subject: `Quick performance fix for ${l.domain}`,
+              body: l.pitch_email || '',
+            },
+            pitchDm: {
+              instagram: l.pitch_dm || '',
+              linkedin: l.pitch_dm || '',
+            },
+            qualificationStatus: l.status || (l.qualified_for_revamp ? 'Qualified' : 'Pending'),
+            discoveredAt: l.created_at || new Date().toISOString(),
+          }));
+          setLeads(mapped);
+        }
+      })
+      .catch((err) => console.error('Failed to load initial leads:', err));
+  }, []);
 
   useWorkflowAnnouncer(
     isRunningAutomation
@@ -35,9 +85,56 @@ export default function Home() {
     setIsRunningAutomation((prev) => !prev);
   };
 
-  const handleLeadDiscovered = (newLead: LeadItem) => {
+  const handleLeadDiscovered = (newLeadRaw: any) => {
+    if (!newLeadRaw) return;
+    const l = newLeadRaw;
+    const newLead: LeadItem = {
+      id: l.id || l.domain,
+      domain: l.domain,
+      storeName: l.store_name || l.domain,
+      niche: l.niche || 'E-Commerce',
+      platform: l.platform || 'Shopify',
+      isShopify: l.is_shopify ?? true,
+      followers: l.followers || 0,
+      engagementRate: l.engagement_rate ? `${l.engagement_rate}%` : 'N/A',
+      lighthouseScore: l.lighthouse_performance || 0,
+      lighthouseMetrics: {
+        fcp: l.lighthouse_fcp || '2.4s',
+        lcp: l.lighthouse_lcp || '4.2s',
+        cls: '0.12',
+        speedIndex: '3.8s',
+        seo: l.lighthouse_seo || 85,
+        accessibility: l.lighthouse_accessibility || 80,
+      },
+      consoleErrorsCount: l.console_errors_count || 0,
+      consoleErrorsList: (l.console_error_logs || []).map((msg: string) => ({
+        type: 'error' as const,
+        message: msg,
+      })),
+      visionScore: l.vision_score || 60,
+      visionCritique: {
+        summary: l.vision_critique || '',
+        flaws: l.vision_bad_patterns || [],
+        revampIdeas: l.redesign_blueprint || l.vision_revamp_suggestions || [],
+      },
+      pitchEmail: {
+        subject: `Quick performance fix for ${l.domain}`,
+        body: l.pitch_email || '',
+      },
+      pitchDm: {
+        instagram: l.pitch_dm || '',
+        linkedin: l.pitch_dm || '',
+      },
+      qualificationStatus: l.status || (l.qualified_for_revamp ? 'Qualified' : 'Pending'),
+      discoveredAt: l.created_at || new Date().toISOString(),
+    };
     setLeads((prev) => {
-      if (prev.some((l) => l.domain === newLead.domain)) return prev;
+      const idx = prev.findIndex((item) => item.domain === newLead.domain);
+      if (idx !== -1) {
+        const updated = [...prev];
+        updated[idx] = newLead;
+        return updated;
+      }
       return [newLead, ...prev];
     });
   };
@@ -45,6 +142,10 @@ export default function Home() {
   const qualifiedLeadsCount = leads.filter(
     (l) => l.qualificationStatus === 'Qualified'
   ).length;
+
+  const avgSpeed = leads.length > 0
+    ? Math.round(leads.reduce((acc, l) => acc + (l.lighthouseScore || 0), 0) / leads.length)
+    : 0;
 
   return (
     <div className="min-h-screen bg-paper text-ink flex flex-col antialiased selection:bg-accent/35 selection:text-ink overflow-x-clip">
@@ -57,7 +158,7 @@ export default function Home() {
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-[1440px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {/* MODULE 1: SHOPIFY REVAMP (Primary Flagship Automation) */}
+        {/* MODULE 1: STORE LEAD FARMING (E-Commerce Store Lead Harvester) */}
         {activeModule === 'shopify-revamp' && (
           <div className="space-y-6">
             {/* Hero / Overview Banner */}
@@ -66,18 +167,18 @@ export default function Home() {
                 <div>
                   <div className="flex items-center gap-2 mb-2">
                     <span className="px-2 py-0.5 text-xs text-accent border border-rule bg-paper-3">
-                      pipeline: <code className="font-mono">shopify-revamp</code>
+                      pipeline: <code className="font-mono">store-lead-farmer</code>
                     </span>
                     <span className="text-xs text-muted">
                       autonomous crawler
                     </span>
                   </div>
                   <h1 className="text-xl sm:text-2xl font-medium text-ink tracking-tight">
-                    Shopify Store Auditor and Revamp Finder
+                    E-Commerce Store Lead Harvester & Prospector
                   </h1>
                   <p className="text-xs sm:text-sm text-muted mt-1 max-w-2xl leading-relaxed">
-                    Identifies Shopify webstores with low Lighthouse performance scores and runtime console errors,
-                    generating customized revamp pitches for speed and layout modernizations.
+                    Identifies e-commerce webstores with speed bottlenecks and runtime console errors,
+                    generating customized client acquisition pitches and conversion diagnostics.
                   </p>
                 </div>
 
@@ -104,7 +205,7 @@ export default function Home() {
                       Average speed
                     </span>
                     <span className="text-lg font-normal font-mono text-accent-2">
-                      44 / 100
+                      {avgSpeed > 0 ? `${avgSpeed} / 100` : '—'}
                     </span>
                   </div>
                 </div>

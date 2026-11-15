@@ -258,6 +258,7 @@ class BaseWorkflow:
             "workflow_id": self.id,
             "status": final_status,
             "total_duration_ms": total_duration,
+            "duration_ms": total_duration,
             "timestamp": datetime.utcnow().isoformat(),
             "summary": {
                 "nodes_total": len(self.nodes),

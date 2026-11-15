@@ -121,7 +121,7 @@ def extract_social_links(html: str, base_url: str = "") -> List[Dict[str, str]]:
     return discovered
 
 
-def scrape_instagram_metrics(username_or_url: str, timeout: int = 12) -> Dict[str, Any]:
+def scrape_instagram_metrics(username_or_url: str, timeout: int = 3) -> Dict[str, Any]:
     """
     Extracts public Instagram metrics (followers, bio, posts, engagement rate).
     Uses OpenGraph inspection, public CDN embeds, or fallbacks.
@@ -197,7 +197,7 @@ def scrape_instagram_metrics(username_or_url: str, timeout: int = 12) -> Dict[st
     return result
 
 
-def scrape_tiktok_metrics(username_or_url: str, timeout: int = 12) -> Dict[str, Any]:
+def scrape_tiktok_metrics(username_or_url: str, timeout: int = 3) -> Dict[str, Any]:
     """
     Extracts public TikTok metrics (followers, likes, bio).
     """
@@ -262,10 +262,10 @@ def resolve_social_presence(store_url_or_domain: str, html: Optional[str] = None
             url = "https://" + url
         try:
             if requests is not None:
-                resp = requests.get(url, headers=DEFAULT_HEADERS, timeout=12)
+                resp = requests.get(url, headers=DEFAULT_HEADERS, timeout=3)
                 html = resp.text
             elif httpx is not None:
-                with httpx.Client(headers=DEFAULT_HEADERS, timeout=12, follow_redirects=True) as client:
+                with httpx.Client(headers=DEFAULT_HEADERS, timeout=3, follow_redirects=True) as client:
                     html = client.get(url).text
         except Exception as e:
             logger.warning(f"Failed to fetch store page for social extraction: {e}")

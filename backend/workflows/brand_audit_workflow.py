@@ -80,29 +80,53 @@ class BrandAuditWorkflow(BaseWorkflow):
 
     async def _handle_profile_scrape(self, context: Dict[str, Any], log) -> Dict[str, Any]:
         username = context["username"]
-        await log(f"Scraping public metrics & recent media for @{username}...", "info")
+        await log(f"Scraping public metrics & brand presence for @{username}...", "info")
 
-        profile_data = {}
+        profile_data = {
+            "username": username,
+            "full_name": username.capitalize(),
+            "followers_count": 0,
+            "followers_verified": False,
+            "biography": "",
+            "external_url": f"https://{username}.com" if "." not in username else f"https://{username}",
+            "engagement_rate": 0.0,
+        }
+
+        # Try resolving real social presence or website data
         try:
-            from core.scraper import InstagramScraper
-            scraper = InstagramScraper()
-            profile = await asyncio.to_thread(scraper.get_profile, username)
-            if profile:
-                profile_data = profile.model_dump()
+            from backend.tools.scrapers.social_scraper import resolve_social_presence
+            target_url = f"https://{username}" if "." in username else f"https://{username}.com"
+            presence = await asyncio.to_thread(resolve_social_presence, target_url)
+            if presence:
+                profile_data["followers_count"] = presence.get("followers", 0)
+                profile_data["engagement_rate"] = presence.get("engagement_rate", 0.0)
+                if presence.get("followers"):
+                    profile_data["followers_verified"] = True
+                if presence.get("primary_handle"):
+                    profile_data["username"] = presence["primary_handle"]
         except Exception as e:
-            logger.warning(f"Profile scraper fallback: {e}")
-            profile_data = {
-                "username": username,
-                "full_name": username.capitalize(),
-                "followers_count": 48200,
-                "following_count": 520,
-                "posts_count": 312,
-                "biography": f"Official page for {username.capitalize()}. Modern essentials for everyday life. Shop now ↓",
-                "external_url": f"https://{username}.com",
-                "engagement_rate": 3.4,
-            }
+            logger.debug(f"Social presence resolution notice: {e}")
 
-        await log(f"Extracted profile: {profile_data.get('followers_count', 0):,} followers, {profile_data.get('engagement_rate', 3.0)}% engagement rate.", "info")
+        # Try web metadata extraction
+        try:
+            import requests
+            from bs4 import BeautifulSoup
+            target_url = profile_data["external_url"]
+            resp = await asyncio.to_thread(requests.get, target_url, timeout=5, headers={"User-Agent": "Mozilla/5.0"})
+            if resp.status_code == 200:
+                soup = BeautifulSoup(resp.text, "html.parser")
+                title = soup.find("title")
+                meta_desc = soup.find("meta", attrs={"name": "description"}) or soup.find("meta", attrs={"property": "og:description"})
+                if title:
+                    profile_data["full_name"] = title.get_text(strip=True).split("-")[0].split("|")[0].strip()
+                if meta_desc:
+                    profile_data["biography"] = meta_desc.get("content", "").strip()
+                await log(f"Extracted verified web metadata for '{profile_data['full_name']}'.", "info")
+        except Exception as e:
+            logger.debug(f"Web metadata extraction notice: {e}")
+
+        followers_display = f"{profile_data['followers_count']:,} verified" if profile_data.get("followers_verified") else "Unverified (public login gate)"
+        await log(f"Brand footprint: {profile_data['full_name']} | Audience: {followers_display}.", "info")
         return {"profile": profile_data}
 
     async def _handle_brand_voice(self, context: Dict[str, Any], log) -> Dict[str, Any]:

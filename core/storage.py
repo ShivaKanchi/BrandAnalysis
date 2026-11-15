@@ -1,15 +1,16 @@
+import re
 import json
 import logging
 from pathlib import Path
 from datetime import datetime
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Set
 
 try:
     from config.settings import settings
-    from core.models import BrandingAnalysisReport
+    from core.models import BrandingAnalysisReport, DiscoveredLeadItem
 except (ImportError, ValueError):
     from ..config.settings import settings
-    from .models import BrandingAnalysisReport
+    from .models import BrandingAnalysisReport, DiscoveredLeadItem
 
 logger = logging.getLogger("BrandAnalysis.Storage")
 
@@ -23,6 +24,140 @@ class StorageManager:
     """
 
     INDEX_FILENAME = "intelligence_index.json"
+    LEADS_REGISTRY_FILENAME = "leads_registry.json"
+
+    @classmethod
+    def get_leads_registry_path(cls) -> Path:
+        return cls.get_reports_dir() / cls.LEADS_REGISTRY_FILENAME
+
+    @classmethod
+    def load_leads_registry(cls) -> Dict[str, Any]:
+        path = cls.get_leads_registry_path()
+        if not path.exists():
+            return {"last_updated": None, "total_leads": 0, "leads": {}}
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except Exception as e:
+            logger.error(f"Failed to read leads registry from {path}: {e}")
+            return {"last_updated": None, "total_leads": 0, "leads": {}}
+
+    @classmethod
+    def make_lead_signature(cls, business_name: str, location_or_maps: Optional[str] = None) -> str:
+        """
+        Creates a normalized signature for a business to prevent duplicate discovery.
+        """
+        clean_name = re.sub(r"[^a-z0-9]", "", (business_name or "").lower())
+        clean_loc = re.sub(r"[^a-z0-9]", "", (location_or_maps or "").lower())
+        if clean_loc:
+            return f"{clean_name}::{clean_loc[:20]}"
+        return clean_name
+
+    @classmethod
+    def get_registered_lead_signatures(cls) -> Set[str]:
+        registry = cls.load_leads_registry()
+        signatures = set()
+        leads_dict = registry.get("leads", {})
+        for sig, lead in leads_dict.items():
+            signatures.add(sig)
+            b_name = lead.get("business_name", "")
+            if b_name:
+                signatures.add(re.sub(r"[^a-z0-9]", "", b_name.lower()))
+            ig = lead.get("instagram_handle", "")
+            if ig:
+                signatures.add(f"ig::{ig.lower().strip('@')}")
+            m_url = lead.get("maps_url", "")
+            if m_url:
+                m_match = re.search(r"/maps/place/([^/]+)/", m_url)
+                if m_match:
+                    signatures.add(f"maps::{m_match.group(1).lower()}")
+        return signatures
+
+    @classmethod
+    def is_lead_registered(
+        cls,
+        business_name: str,
+        location: Optional[str] = None,
+        maps_url: Optional[str] = None,
+        ig_handle: Optional[str] = None
+    ) -> bool:
+        sigs = cls.get_registered_lead_signatures()
+        clean_name = re.sub(r"[^a-z0-9]", "", (business_name or "").lower())
+        if clean_name in sigs:
+            return True
+        if location:
+            compound = cls.make_lead_signature(business_name, location)
+            if compound in sigs:
+                return True
+        if ig_handle:
+            clean_ig = f"ig::{ig_handle.lower().strip('@')}"
+            if clean_ig in sigs:
+                return True
+        if maps_url:
+            m_match = re.search(r"/maps/place/([^/]+)/", maps_url)
+            if m_match and f"maps::{m_match.group(1).lower()}" in sigs:
+                return True
+        return False
+
+    @classmethod
+    def save_leads_batch(
+        cls,
+        leads: List[Any],
+        query: str = "",
+        location: str = ""
+    ) -> int:
+        """
+        Saves newly discovered leads into the persistent leads registry.
+        Returns the count of newly registered unique leads.
+        """
+        registry = cls.load_leads_registry()
+        leads_dict = registry.get("leads", {})
+        now_str = datetime.now().isoformat()
+        new_count = 0
+
+        for item in leads:
+            b_name = getattr(item, "business_name", None) or (item.get("business_name") if isinstance(item, dict) else "")
+            if not b_name:
+                continue
+
+            addr = getattr(item, "address_or_location", "") or (item.get("address_or_location", "") if isinstance(item, dict) else "")
+            sig = cls.make_lead_signature(b_name, addr or location)
+
+            if sig not in leads_dict:
+                new_count += 1
+                lead_data = item.model_dump() if hasattr(item, "model_dump") else dict(item)
+                lead_data["first_discovered_at"] = now_str
+                lead_data["last_seen_at"] = now_str
+                lead_data["discovery_query"] = query
+                leads_dict[sig] = lead_data
+            else:
+                leads_dict[sig]["last_seen_at"] = now_str
+
+        registry["last_updated"] = now_str
+        registry["total_leads"] = len(leads_dict)
+        registry["leads"] = leads_dict
+
+        try:
+            cls.get_leads_registry_path().write_text(json.dumps(registry, indent=2), encoding="utf-8")
+            logger.info(f"Updated leads registry with {new_count} new leads (Total: {len(leads_dict)})")
+        except Exception as e:
+            logger.error(f"Failed to persist leads registry: {e}")
+
+        return new_count
+
+    @classmethod
+    def get_leads_registry_count(cls) -> int:
+        return cls.load_leads_registry().get("total_leads", 0)
+
+    @classmethod
+    def clear_leads_registry(cls) -> bool:
+        try:
+            path = cls.get_leads_registry_path()
+            if path.exists():
+                path.write_text(json.dumps({"last_updated": datetime.now().isoformat(), "total_leads": 0, "leads": {}}, indent=2), encoding="utf-8")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to clear leads registry: {e}")
+            return False
 
     @classmethod
     def get_reports_dir(cls) -> Path:
