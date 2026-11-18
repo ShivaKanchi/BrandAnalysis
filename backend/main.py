@@ -47,6 +47,7 @@ def root():
             "workflows": "/api/workflows",
             "stream_run": "/api/workflows/{workflow_id}/run",
             "leads": "/api/leads",
+            "influencer_discovery": "/api/influencers/discover",
             "export_csv": "/api/leads/export/csv",
             "settings": "/api/settings",
             "health": "/api/health",

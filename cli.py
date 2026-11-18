@@ -44,8 +44,37 @@ def main():
     parser.add_argument("--radar", "-R", action="store_true", help="Run Software Engineer Problem & Micro-SaaS Radar")
     parser.add_argument("--limit", type=int, default=8, help="Limit items for prospecting or radar (default: 8)")
     parser.add_argument("--history", action="store_true", help="List all saved past analyses and comeback reports")
+    parser.add_argument("--influencers", action="store_true", help="Build a youth-gaming influencer review queue")
+    parser.add_argument("--niches", type=str, default="", help="Optional comma-separated influencer niches; omit for all gaming categories")
+    parser.add_argument("--audience-bands", type=str, default="10-13,13-17,16-22", help="Comma-separated influencer age bands")
+    parser.add_argument("--country", type=str, default="", help="Optional creator country filter, e.g. India")
+    parser.add_argument("--min-followers", type=int, default=None, help="Optional minimum publicly observed follower count")
+    parser.add_argument("--max-followers", type=int, default=None, help="Optional maximum publicly observed follower count")
+    parser.add_argument("--fresh-only", action="store_true", help="For influencer discovery, skip creators returned in prior runs")
 
     args = parser.parse_args()
+
+    if args.influencers:
+        from core.influencer_discovery import InfluencerDiscovery
+        discovery = InfluencerDiscovery()
+        result = discovery.discover(
+            niches=[item.strip() for item in args.niches.split(",") if item.strip()] or None,
+            audience_bands=[item.strip() for item in args.audience_bands.split(",") if item.strip()],
+            country=args.country.strip() or None,
+            min_followers=args.min_followers,
+            max_followers=args.max_followers,
+            limit=args.limit,
+            fresh_only=args.fresh_only,
+        )
+        country_slug = (args.country.strip() or "all").lower().replace(" ", "_")
+        follower_suffix = f"_{args.min_followers or 0}_{args.max_followers or 'plus'}" if args.min_followers is not None or args.max_followers is not None else ""
+        csv_path = discovery.write_shortlist_csv(result["influencers"], f"influencer_shortlist_{country_slug}{follower_suffix}")
+        console.print(f"[bold green]✓ {result['count']} review-ready influencer candidates saved.[/bold green]")
+        for index, item in enumerate(result["influencers"], 1):
+            console.print(f"{index}. [bold]{item['name']}[/bold] — {', '.join(item['niches'])} — fit {item['fit_score']}/100 — {item['review_status']}")
+        console.print("[yellow]Audience fit is inferred from the catalogue. Verify live activity, audience analytics, brand safety, and contact route before outreach.[/yellow]")
+        console.print(f"[bold green]✓ CSV saved:[/bold green] [cyan]{csv_path}[/cyan]")
+        return
 
     # Handle View History Flag
     if args.history:

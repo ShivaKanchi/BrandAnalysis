@@ -56,6 +56,9 @@ async def run_workflow_stream(
     min_followers: Optional[int] = Query(None, description="Minimum social followers threshold"),
     max_lighthouse_score: Optional[float] = Query(None, description="Maximum speed threshold to qualify"),
     min_console_errors: Optional[int] = Query(None, description="Minimum JavaScript errors required"),
+    audience_bands: Optional[str] = Query(None, description="Comma-separated audience bands, e.g. 10-13,13-17"),
+    fresh_only: Optional[bool] = Query(None, description="Exclude influencers returned by earlier runs"),
+    limit: Optional[int] = Query(None, ge=1, le=500, description="Maximum workflow results"),
 ):
     """
     Server-Sent Events (SSE) streaming endpoint.
@@ -77,6 +80,9 @@ async def run_workflow_stream(
         "min_followers": min_followers,
         "max_lighthouse_score": max_lighthouse_score,
         "min_console_errors": min_console_errors,
+        "audience_bands": audience_bands,
+        "fresh_only": fresh_only,
+        "limit": limit,
     }
     # Filter out None values
     context = {k: v for k, v in context.items() if v is not None}
@@ -93,6 +99,54 @@ async def run_workflow_stream(
         wf.stream_events(context),
         media_type="text/event-stream",
         headers=headers,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Influencer Discovery & Review Queue
+# ---------------------------------------------------------------------------
+
+@router.get("/influencers/discover")
+@router.post("/influencers/discover")
+def discover_influencers(
+    niches: Optional[str] = Query(None, description="Optional comma-separated campaign niches; omit for the full catalogue"),
+    audience_bands: str = Query("10-13,13-17,16-22", description="Comma-separated target age bands"),
+    country: Optional[str] = Query(None, description="Optional creator country, e.g. India"),
+    min_followers: Optional[int] = Query(None, ge=0, description="Optional minimum public follower count"),
+    max_followers: Optional[int] = Query(None, ge=0, description="Optional maximum public follower count"),
+    limit: int = Query(100, ge=1, le=500),
+    fresh_only: bool = Query(False, description="Exclude influencers returned by prior runs"),
+):
+    """Builds a deduplicated, review-ready influencer shortlist from the configurable catalogue."""
+    from core.influencer_discovery import InfluencerDiscovery
+    try:
+        discovery = InfluencerDiscovery()
+        result = discovery.discover(
+            niches=[item.strip() for item in niches.split(",") if item.strip()] if niches else None,
+            audience_bands=[item.strip() for item in audience_bands.split(",") if item.strip()],
+            country=country,
+            min_followers=min_followers,
+            max_followers=max_followers,
+            limit=limit,
+            fresh_only=fresh_only,
+        )
+        country_slug = (country or "all").strip().lower().replace(" ", "_")
+        follower_suffix = f"_{min_followers or 0}_{max_followers or 'plus'}" if min_followers is not None or max_followers is not None else ""
+        csv_path = discovery.write_shortlist_csv(result["influencers"], f"influencer_shortlist_{country_slug}{follower_suffix}")
+        result["csv_path"] = str(csv_path)
+        return result
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/influencers/export/csv")
+def export_influencers_csv():
+    """Exports the persistent influencer review queue as a spreadsheet-friendly CSV."""
+    from core.influencer_discovery import InfluencerDiscovery
+    return Response(
+        content=InfluencerDiscovery().export_csv(),
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="influencer_review_queue.csv"'},
     )
 
 

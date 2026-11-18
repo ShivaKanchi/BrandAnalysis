@@ -62,6 +62,18 @@ Powered by **Playwright**, **Chrome DevTools MCP**, and local **Ollama** LLMs (`
 - **Zero manual saving required**: Every profile analyzed in the UI or CLI is instantly persisted into timestamped JSON and Markdown reports under `reports/<username>/`.
 - Central registry (`reports/intelligence_index.json`) enables instant 1-click reloading of past analyses without re-scraping or re-invoking Ollama.
 
+### 6. 🎮 Youth Gaming Influencer Discovery
+
+- A configurable catalogue of 100 Roblox, Minecraft, children/family gaming, Nintendo, and indie-game creators.
+- Explainable relevance scoring based only on the selected niche and age-band labels; it never represents inferred labels as verified private demographics.
+- Deduplicated review queue at `reports/influencer_registry.json` and spreadsheet export from `/api/influencers/export/csv`.
+
+```powershell
+python cli.py --influencers --audience-bands "10-13,13-17,16-22" --limit 100
+```
+
+Pass `--niches "Roblox,Minecraft,indie games"` to narrow a campaign; omit it to use all catalogue entries. Add `--country India` to use the separate Indian creator pool. Use `--fresh-only` to avoid candidates already returned in an earlier run. Maintain the source pools in `data/influencer_seed_catalog.json` and `data/influencer_india_seed_catalog.json`; each entry should remain `needs_review` until a human confirms current activity, audience analytics, brand safety, and contact route.
+
 ---
 
 ## 🚀 Quick Start (One-Click Startup Script)

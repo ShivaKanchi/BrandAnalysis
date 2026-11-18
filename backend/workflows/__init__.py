@@ -4,6 +4,7 @@ from .lead_harvester_workflow import LeadHarvesterWorkflow
 from .brand_audit_workflow import BrandAuditWorkflow
 from .competitor_matrix_workflow import CompetitorMatrixWorkflow
 from .problem_radar_workflow import ProblemRadarWorkflow
+from .influencer_discovery_workflow import InfluencerDiscoveryWorkflow
 
 WORKFLOW_REGISTRY = {
     "shopify_revamp": ShopifyRevampWorkflow,
@@ -16,6 +17,8 @@ WORKFLOW_REGISTRY = {
     "competitor-matrix": CompetitorMatrixWorkflow,
     "problem_radar": ProblemRadarWorkflow,
     "problem-radar": ProblemRadarWorkflow,
+    "influencer_discovery": InfluencerDiscoveryWorkflow,
+    "influencer-discovery": InfluencerDiscoveryWorkflow,
 }
 
 def get_workflow(workflow_id: str) -> BaseWorkflow:
@@ -32,6 +35,7 @@ __all__ = [
     "BrandAuditWorkflow",
     "CompetitorMatrixWorkflow",
     "ProblemRadarWorkflow",
+    "InfluencerDiscoveryWorkflow",
     "WORKFLOW_REGISTRY",
     "get_workflow",
 ]
